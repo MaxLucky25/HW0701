@@ -16,7 +16,6 @@ import { JwtStrategy } from '../guards/bearer/jwt.strategy';
 import { RefreshTokenStrategy } from '../guards/bearer/refresh-token.strategy';
 
 // Guards
-import { RefreshTokenGuard } from '../guards/bearer/refresh-token.guard';
 import { RefreshTokenAuthGuard } from '../guards/bearer/refresh-token-auth.guard';
 
 // Command Handlers
@@ -59,7 +58,7 @@ const Services = [AuthService, RefreshTokenService, JwtConfigService];
 const Strategies = [LocalStrategy, JwtStrategy, RefreshTokenStrategy];
 
 // Guards
-const Guards = [RefreshTokenGuard, RefreshTokenAuthGuard];
+const Guards = [RefreshTokenAuthGuard];
 
 // JWT Service Providers
 const JwtServiceProviders = [

@@ -1,4 +1,3 @@
-import { OmitType } from '@nestjs/swagger';
 import { User } from '../../domain/entities/user.entity';
 
 export class UserViewDto {
@@ -19,10 +18,9 @@ export class UserViewDto {
   }
 }
 
-export class MeViewDto extends OmitType(UserViewDto, [
-  'createdAt',
-  'id',
-] as const) {
+export class MeViewDto {
+  login: string;
+  email: string;
   userId: string;
 
   static mapToView(user: User): MeViewDto {

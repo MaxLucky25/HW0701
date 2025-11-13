@@ -10,13 +10,6 @@ import {
 } from '@nestjs/common';
 import { Response } from 'express';
 import { ResponseWithCookies } from '../../../../types/express-typed';
-import {
-  ApiBody,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-  ApiBearerAuth,
-} from '@nestjs/swagger';
 import { MeViewDto } from '../../user-accounts/api/view-dto/users.view-dto';
 import { CreateUserInputDto } from '../../user-accounts/api/input-dto/users.input-dto';
 import { LocalAuthGuard } from '../../guards/local/local-auth.guard';
@@ -46,7 +39,6 @@ import { ExtractUserForRefreshTokenGuard } from '../../guards/decorators/param/e
 import { ExtractIp } from '../../guards/decorators/param/extract-ip.decorator';
 import { ExtractUserAgent } from '../../guards/decorators/param/extract-user-agent.decorator';
 
-@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(
@@ -56,9 +48,6 @@ export class AuthController {
 
   @Post('registration')
   @HttpCode(204)
-  @ApiOperation({ summary: 'Register a new user' })
-  @ApiResponse({ status: 201, description: 'User registered successfully' })
-  @ApiResponse({ status: 400, description: 'Bad request' })
   registration(@Body() body: CreateUserInputDto): Promise<void> {
     return this.commandBus.execute(new RegistrationUserCommand(body));
   }
@@ -66,24 +55,6 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @UseGuards(LocalAuthGuard)
-  @ApiOperation({ summary: 'User login' })
-  @ApiResponse({
-    status: 200,
-    description:
-      'User logged in successfully, returns access token and sets refresh token in cookie',
-    type: LoginResponseDto,
-  })
-  @ApiResponse({ status: 400, description: 'Invalid input data' })
-  @ApiResponse({ status: 401, description: 'Invalid credentials' })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        loginOrEmail: { type: 'string', example: 'login123' },
-        password: { type: 'string', example: 'superpassword' },
-      },
-    },
-  })
   async login(
     @Body() body: LoginInputDto,
     @ExtractIp() ip: string,
@@ -97,25 +68,6 @@ export class AuthController {
 
   @Post('password-recovery')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary:
-      'Password recovery via Email confirmation. Email should be sent with RecoveryCode inside',
-  })
-  @ApiResponse({
-    status: 204,
-    description:
-      "Even if current email is not registered (for prevent user's email detection)",
-  })
-  @ApiResponse({
-    status: 400,
-    description:
-      'If the inputModel has invalid email (for example 222^gmail.com)',
-  })
-  @ApiResponse({
-    status: 429,
-    description: 'More than 5 attempts from one IP-address during 10 seconds',
-  })
-  @ApiBody({ type: PasswordRecoveryInputDto })
   async passwordRecovery(
     @Body() body: PasswordRecoveryInputDto,
   ): Promise<void> {
@@ -124,42 +76,12 @@ export class AuthController {
 
   @Post('new-password')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Confirm Password recovery' })
-  @ApiResponse({
-    status: 204,
-    description: 'If code is valid and new password is accepted',
-  })
-  @ApiResponse({
-    status: 400,
-    description:
-      'If the inputModel has incorrect value (for incorrect password length) or RecoveryCode is incorrect or expired',
-  })
-  @ApiResponse({
-    status: 429,
-    description: 'More than 5 attempts from one IP-address during 10 seconds',
-  })
-  @ApiBody({ type: NewPasswordInputDto })
   async newPassword(@Body() body: NewPasswordInputDto): Promise<void> {
     await this.commandBus.execute(new NewPasswordCommand(body));
   }
 
   @Post('registration-confirmation')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Confirm registration' })
-  @ApiResponse({
-    status: 204,
-    description: 'Email was verified. Account was activated',
-  })
-  @ApiResponse({
-    status: 400,
-    description:
-      'If the confirmation code is incorrect, expired or already been applied',
-  })
-  @ApiResponse({
-    status: 429,
-    description: 'More than 5 attempts from one IP-address during 10 seconds',
-  })
-  @ApiBody({ type: RegistrationConfirmationInputDto })
   async registrationConfirmation(
     @Body() body: RegistrationConfirmationInputDto,
   ): Promise<void> {
@@ -168,23 +90,6 @@ export class AuthController {
 
   @Post('registration-email-resending')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary: 'Resend confirmation registration Email if user exists',
-  })
-  @ApiResponse({
-    status: 204,
-    description:
-      'Input data is accepted. Email with confirmation code will be send to passed email address.',
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'If the inputModel has incorrect values',
-  })
-  @ApiResponse({
-    status: 429,
-    description: 'More than 5 attempts from one IP-address during 10 seconds',
-  })
-  @ApiBody({ type: RegistrationEmailResendingInputDto })
   async registrationEmailResending(
     @Body() body: RegistrationEmailResendingInputDto,
   ): Promise<void> {
@@ -193,10 +98,6 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Get current user info' })
-  @ApiResponse({ status: 200, description: 'Returns user info' })
-  @ApiResponse({ status: 401, description: 'Unauthorized' })
   async me(@ExtractUserForJwtGuard() user: UserContextDto): Promise<MeViewDto> {
     return this.queryBus.execute(new AuthMeQuery(user));
   }
@@ -204,15 +105,6 @@ export class AuthController {
   @Post('refresh-token')
   @HttpCode(HttpStatus.OK)
   @UseGuards(RefreshTokenAuthGuard)
-  @ApiOperation({
-    summary: 'Refresh access token using refresh token from cookie',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Access token refreshed successfully',
-    type: LoginResponseDto,
-  })
-  @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   async refreshToken(
     @ExtractUserForRefreshTokenGuard() user: TokenContextDto,
     @Cookies() cookies: Record<string, string> | undefined,
@@ -224,12 +116,6 @@ export class AuthController {
   @Post('logout')
   @UseGuards(RefreshTokenAuthGuard)
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({
-    summary: 'Logout user',
-    description: 'Revoke refresh token from cookie',
-  })
-  @ApiResponse({ status: 204, description: 'User logged out successfully' })
-  @ApiResponse({ status: 401, description: 'Invalid refresh token' })
   async logout(
     @ExtractUserForRefreshTokenGuard() user: TokenContextDto,
     @Cookies() cookies: Record<string, string> | undefined,

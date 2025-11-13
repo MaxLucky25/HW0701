@@ -1,0 +1,123 @@
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  ManyToOne,
+  JoinColumn,
+  Index,
+  OneToMany,
+} from 'typeorm';
+import { PairGame } from './pair-game.entity';
+import { User } from '../../../../auth-manage/user-accounts/domain/entities/user.entity';
+import { GameAnswer } from './game-answer.entity';
+import { PlayerRole } from '../dto/player-role.enum';
+
+@Entity('players')
+@Index(['gameId', 'userId'], { unique: true }) // один пользователь не может участвовать дважды в одной игре
+@Index(['gameId', 'role'], { unique: true }) // в игре не более одного firstPlayer и одного secondPlayer
+export class Player {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @ManyToOne(() => PairGame, (game) => game.players, {
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
+  @JoinColumn({ name: 'game_id' })
+  game: PairGame;
+
+  @Column({ name: 'game_id' })
+  gameId: string;
+
+  @ManyToOne(() => User, { nullable: false })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
+
+  @Column({ name: 'user_id' })
+  userId: string;
+
+  @Column({
+    type: 'enum',
+    enum: PlayerRole,
+  })
+  role: PlayerRole;
+
+  @Column({ default: 0 })
+  score: number;
+
+  @Column({ default: 0 })
+  bonus: number;
+
+  @Column({ name: 'finished_at', type: 'timestamp', nullable: true })
+  finishedAt: Date | null;
+
+  @OneToMany(() => GameAnswer, (answer) => answer.player)
+  answers: GameAnswer[];
+
+  /**
+   * Статический метод для создания нового игрока
+   */
+  static create(gameId: string, userId: string, role: PlayerRole): Player {
+    const player = new Player();
+    player.gameId = gameId;
+    player.userId = userId;
+    player.role = role;
+    player.score = 0;
+    player.bonus = 0;
+    player.finishedAt = null;
+
+    return player;
+  }
+
+  /**
+   * Увеличить счет на 1 (за правильный ответ)
+   */
+  incrementScore(): void {
+    this.score += 1;
+  }
+
+  /**
+   * Установить время завершения (когда ответил на 5-й вопрос)
+   */
+  setFinishedAt(date: Date): void {
+    this.finishedAt = date;
+  }
+
+  /**
+   * Установить бонус
+   */
+  setBonus(bonus: number): void {
+    if (bonus !== 0 && bonus !== 1) {
+      throw new Error('Bonus must be 0 or 1');
+    }
+    this.bonus = bonus;
+  }
+
+  /**
+   * Вычислить общий счет (score + bonus)
+   */
+  calculateTotalScore(): number {
+    return this.score + this.bonus;
+  }
+
+  /**
+   * Проверить, закончил ли игрок все ответы
+   */
+  hasFinished(): boolean {
+    return this.finishedAt !== null;
+  }
+
+  /**
+   * Проверить, является ли игрок первым
+   */
+  isFirstPlayer(): boolean {
+    return this.role === PlayerRole.FIRST_PLAYER;
+  }
+
+  /**
+   * Проверить, является ли игрок вторым
+   */
+  isSecondPlayer(): boolean {
+    return this.role === PlayerRole.SECOND_PLAYER;
+  }
+}
