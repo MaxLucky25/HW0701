@@ -1,0 +1,13 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration name="Jest Tests" type="JavaScriptTestRunnerJest">
+    <node-interpreter value="project" />
+    <jest-options value="--config jest.config.json" />
+    <envs>
+      <env name="ENV_FILE_PATH" value="env/.env.testing" />
+      <env name="NODE_ENV" value="testing" />
+      <env name="JEST_ENV" value="testing" />
+    </envs>
+    <scope-kind value="ALL" />
+    <method v="2" />
+  </configuration>
+</component>
