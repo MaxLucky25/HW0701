@@ -6,7 +6,6 @@ import {
   FindPlayerByIdDto,
   FindPlayerByGameAndUserDto,
   FindPlayersByGameIdDto,
-  CountAnswersByPlayerIdDto,
 } from './dto/player-repo.dto';
 import { DomainException } from '../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
@@ -59,16 +58,6 @@ export class PlayerRepository {
         role: 'ASC',
       },
     });
-  }
-
-  async countAnswersByPlayerId(
-    dto: CountAnswersByPlayerIdDto,
-  ): Promise<number> {
-    return await this.repository
-      .createQueryBuilder('player')
-      .innerJoin('player.answers', 'answer')
-      .where('player.id = :playerId', { playerId: dto.playerId })
-      .getCount();
   }
 
   async save(player: Player): Promise<Player> {

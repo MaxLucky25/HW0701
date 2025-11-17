@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { PairGame } from '../domain/entities/pair-game.entity';
 import { GameStatus } from '../domain/dto/game-status.enum';
@@ -20,9 +21,7 @@ export class PairGameRepository {
   constructor(
     @InjectRepository(PairGame)
     private readonly repository: Repository<PairGame>,
-    @InjectRepository(Player)
-    private readonly playerRepository: Repository<Player>,
-    @InjectRepository(Question)
+    @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
 
@@ -83,18 +82,21 @@ export class PairGameRepository {
   }
 
   async createGame(userId: string): Promise<PairGame> {
-    const game = PairGame.create(userId);
-    const savedGame = await this.repository.save(game);
+    return await this.dataSource.transaction(async (manager) => {
+      // Создаем игру
+      const game = PairGame.create();
+      const savedGame = await manager.save(PairGame, game);
 
-    // Создаем первого игрока
-    const firstPlayer = Player.create(
-      savedGame.id,
-      userId,
-      PlayerRole.FIRST_PLAYER,
-    );
-    await this.playerRepository.save(firstPlayer);
+      // Создаем первого игрока
+      const firstPlayer = Player.create({
+        gameId: savedGame.id,
+        userId: userId,
+        role: PlayerRole.FIRST_PLAYER,
+      });
+      await manager.save(Player, firstPlayer);
 
-    return savedGame;
+      return savedGame;
+    });
   }
 
   async joinGameToWaitingPlayer(
@@ -118,18 +120,31 @@ export class PairGameRepository {
       }
 
       // Создаем второго игрока
-      const secondPlayer = Player.create(
-        gameId,
-        userId,
-        PlayerRole.SECOND_PLAYER,
-      );
+      const secondPlayer = Player.create({
+        gameId: gameId,
+        userId: userId,
+        role: PlayerRole.SECOND_PLAYER,
+      });
       await manager.save(Player, secondPlayer);
 
       // Создаем 5 вопросов для игры
       const gameQuestions = questions.map((question, index) =>
-        GameQuestion.create(gameId, question.id, index),
+        GameQuestion.create({
+          gameId: gameId,
+          questionId: question.id,
+          order: index,
+        }),
       );
       await manager.save(GameQuestion, gameQuestions);
+
+      // Валидируем, что игра в правильном статусе перед началом
+      if (!game.isPendingSecondPlayer()) {
+        throw new DomainException({
+          code: DomainExceptionCode.BadRequest,
+          message: 'Game can only be started from PendingSecondPlayer status',
+          field: 'status',
+        });
+      }
 
       // Начинаем игру
       game.startGame();
@@ -144,6 +159,15 @@ export class PairGameRepository {
   }
 
   async finishGame(game: PairGame): Promise<PairGame> {
+    // Валидируем, что игра в правильном статусе перед завершением
+    if (!game.isActive()) {
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Game can only be finished from Active status',
+        field: 'status',
+      });
+    }
+
     game.finishGame();
     return await this.repository.save(game);
   }

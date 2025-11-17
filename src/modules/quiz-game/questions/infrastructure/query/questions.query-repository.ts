@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, SelectQueryBuilder } from 'typeorm';
 import { Question } from '../../domain/entities/question.entity';
 import { QuestionViewDto } from '../../api/view-dto/question.view-dto';
 import { FindQuestionByIdDto } from '../dto/questions-repo.dto';
@@ -40,41 +40,11 @@ export class QuestionsQueryRepository {
   ): Promise<PaginatedViewDto<QuestionViewDto[]>> {
     const queryBuilder = this.repository.createQueryBuilder('question');
 
-    const conditions: string[] = [];
-    const params: Record<string, any> = {};
+    this.applyPublishedStatusFilter(queryBuilder, query.publishedStatus);
+    this.applyBodySearchFilter(queryBuilder, query.bodySearchTerm);
+    this.applySorting(queryBuilder, query.sortBy, query.sortDirection);
+    this.applyPagination(queryBuilder, query.pageSize, query.calculateSkip());
 
-    // Фильтр по publishedStatus
-    if (query.publishedStatus === PublishedStatuses.PUBLISHED) {
-      conditions.push('question.published = :published');
-      params.published = true;
-    } else if (query.publishedStatus === PublishedStatuses.NOT_PUBLISHED) {
-      conditions.push('question.published = :published');
-      params.published = false;
-    }
-    // Если 'all' - не добавляем условие
-
-    // Поиск по bodySearchTerm
-    if (query.bodySearchTerm) {
-      conditions.push('question.body ILIKE :bodySearchTerm');
-      params.bodySearchTerm = `%${query.bodySearchTerm}%`;
-    }
-
-    // Применяем условия
-    if (conditions.length > 0) {
-      queryBuilder.where(conditions.join(' AND '), params);
-    }
-
-    // Сортировка
-    const orderBy = query.sortBy;
-    const direction = query.sortDirection.toUpperCase() as 'ASC' | 'DESC';
-    queryBuilder.orderBy(`question.${orderBy}`, direction);
-
-    // Пагинация
-    const limit = query.pageSize;
-    const offset = query.calculateSkip();
-    queryBuilder.limit(limit).offset(offset);
-
-    // Получаем данные и общее количество
     const [questions, totalCount] = await queryBuilder.getManyAndCount();
 
     const items = questions.map((question) =>
@@ -87,5 +57,56 @@ export class QuestionsQueryRepository {
       page: query.pageNumber,
       size: query.pageSize,
     });
+  }
+
+  /**
+   * Применяет фильтр по статусу публикации
+   */
+  private applyPublishedStatusFilter(
+    queryBuilder: SelectQueryBuilder<Question>,
+    publishedStatus: PublishedStatuses,
+  ): void {
+    if (publishedStatus !== PublishedStatuses.ALL) {
+      queryBuilder.andWhere('question.published = :published', {
+        published: publishedStatus === PublishedStatuses.PUBLISHED,
+      });
+    }
+  }
+
+  /**
+   * Применяет фильтр по поисковому термину в теле вопроса
+   */
+  private applyBodySearchFilter(
+    queryBuilder: SelectQueryBuilder<Question>,
+    bodySearchTerm: string | null,
+  ): void {
+    if (bodySearchTerm) {
+      queryBuilder.andWhere('question.body ILIKE :bodySearchTerm', {
+        bodySearchTerm: `%${bodySearchTerm}%`,
+      });
+    }
+  }
+
+  /**
+   * Применяет сортировку
+   */
+  private applySorting(
+    queryBuilder: SelectQueryBuilder<Question>,
+    sortBy: string,
+    sortDirection: string,
+  ): void {
+    const direction = sortDirection.toUpperCase() as 'ASC' | 'DESC';
+    queryBuilder.orderBy(`question.${sortBy}`, direction);
+  }
+
+  /**
+   * Применяет пагинацию
+   */
+  private applyPagination(
+    queryBuilder: SelectQueryBuilder<Question>,
+    limit: number,
+    offset: number,
+  ): void {
+    queryBuilder.limit(limit).offset(offset);
   }
 }

@@ -5,7 +5,3 @@ export class FindQuestionByIdDto {
 export class FindRandomQuestionsDto {
   count: number;
 }
-
-export class FindQuestionsByPublishedStatusDto {
-  publishedStatus: 'all' | 'published' | 'notPublished';
-}

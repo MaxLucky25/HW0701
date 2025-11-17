@@ -27,6 +27,16 @@ export class GetCurrentGameUseCase
       });
     }
 
+    const firstPlayer = game.getFirstPlayer();
+
+    if (!firstPlayer) {
+      throw new DomainException({
+        code: DomainExceptionCode.InternalServerError,
+        message: 'First player not found in game',
+        field: 'Game',
+      });
+    }
+
     return PairGameViewDto.mapToView(game);
   }
 }

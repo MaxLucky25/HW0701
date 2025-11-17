@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GameAnswer } from '../domain/entities/game-answer.entity';
-import { Player } from '../domain/entities/player.entity';
 import {
   FindAnswerByGameQuestionAndPlayerDto,
   FindAnswersByPlayerIdDto,
@@ -55,15 +54,5 @@ export class GameAnswerRepository {
 
   async save(answer: GameAnswer): Promise<GameAnswer> {
     return await this.repository.save(answer);
-  }
-
-  async saveAnswerAndPlayer(
-    answer: GameAnswer,
-    player: Player,
-  ): Promise<{ answer: GameAnswer; player: Player }> {
-    const savedAnswer = await this.repository.save(answer);
-    const savedPlayer = await this.repository.manager.save(Player, player);
-
-    return { answer: savedAnswer, player: savedPlayer };
   }
 }

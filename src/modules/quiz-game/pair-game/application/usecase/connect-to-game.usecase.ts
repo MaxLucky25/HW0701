@@ -40,8 +40,6 @@ export class ConnectToGameUseCase
         excludeUserId: command.userId,
       });
 
-    let game: any;
-
     if (waitingGame) {
       // Находим 5 случайных опубликованных вопросов
       const questions = await this.questionsRepository.findRandomQuestions({
@@ -57,14 +55,14 @@ export class ConnectToGameUseCase
       }
 
       // Подключаемся к ожидающей игре
-      game = await this.pairGameRepository.joinGameToWaitingPlayer(
+      await this.pairGameRepository.joinGameToWaitingPlayer(
         waitingGame.id,
         command.userId,
         questions,
       );
     } else {
       // Создаем новую игру
-      game = await this.pairGameRepository.createGame(command.userId);
+      await this.pairGameRepository.createGame(command.userId);
     }
 
     // Загружаем полные данные игры для ответа

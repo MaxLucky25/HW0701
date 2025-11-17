@@ -10,9 +10,6 @@ export class PlayerProgressViewDto {
   score: number;
 
   static mapToView(player: Player): PlayerProgressViewDto {
-    if (!player.user) {
-      throw new Error('User is not loaded for Player');
-    }
     return {
       answers: player.answers
         ? player.answers.map((answer) => AnswerViewDto.mapToView(answer))

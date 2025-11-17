@@ -77,13 +77,6 @@ export class Question {
   }
 
   /**
-   * Проверить, опубликован ли вопрос
-   */
-  isPublished(): boolean {
-    return this.published;
-  }
-
-  /**
    * Проверить, является ли ответ правильным
    */
   isAnswerCorrect(answer: string): boolean {

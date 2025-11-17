@@ -10,6 +10,7 @@ import {
 import { PairGame } from './pair-game.entity';
 import { Question } from '../../../questions/domain/entities/question.entity';
 import { GameAnswer } from './game-answer.entity';
+import { CreateGameQuestionDomainDto } from '../dto/create-game-question.domain.dto';
 
 @Entity('game_questions')
 @Index(['gameId', 'order'], { unique: true }) // порядок уникален в рамках игры
@@ -43,24 +44,13 @@ export class GameQuestion {
   /**
    * Статический метод для создания вопроса в игре
    */
-  static create(
-    gameId: string,
-    questionId: string,
-    order: number,
-  ): GameQuestion {
+  static create(dto: CreateGameQuestionDomainDto): GameQuestion {
     const gameQuestion = new GameQuestion();
-    gameQuestion.gameId = gameId;
-    gameQuestion.questionId = questionId;
-    gameQuestion.order = order;
+    gameQuestion.gameId = dto.gameId;
+    gameQuestion.questionId = dto.questionId;
+    gameQuestion.order = dto.order;
 
     return gameQuestion;
-  }
-
-  /**
-   * Проверить, является ли это первым вопросом
-   */
-  isFirst(): boolean {
-    return this.order === 0;
   }
 
   /**

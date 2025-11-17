@@ -11,6 +11,7 @@ import { PairGame } from './pair-game.entity';
 import { User } from '../../../../auth-manage/user-accounts/domain/entities/user.entity';
 import { GameAnswer } from './game-answer.entity';
 import { PlayerRole } from '../dto/player-role.enum';
+import { CreatePlayerDomainDto } from '../dto/create-player.domain.dto';
 
 @Entity('players')
 @Index(['gameId', 'userId'], { unique: true }) // один пользователь не может участвовать дважды в одной игре
@@ -57,14 +58,13 @@ export class Player {
   /**
    * Статический метод для создания нового игрока
    */
-  static create(gameId: string, userId: string, role: PlayerRole): Player {
+  static create(dto: CreatePlayerDomainDto): Player {
     const player = new Player();
-    player.gameId = gameId;
-    player.userId = userId;
-    player.role = role;
-    player.score = 0;
-    player.bonus = 0;
+    player.gameId = dto.gameId;
+    player.userId = dto.userId;
+    player.role = dto.role;
     player.finishedAt = null;
+    // score и bonus установятся автоматически через @Column({ default: 0 })
 
     return player;
   }
@@ -87,17 +87,7 @@ export class Player {
    * Установить бонус
    */
   setBonus(bonus: number): void {
-    if (bonus !== 0 && bonus !== 1) {
-      throw new Error('Bonus must be 0 or 1');
-    }
     this.bonus = bonus;
-  }
-
-  /**
-   * Вычислить общий счет (score + bonus)
-   */
-  calculateTotalScore(): number {
-    return this.score + this.bonus;
   }
 
   /**

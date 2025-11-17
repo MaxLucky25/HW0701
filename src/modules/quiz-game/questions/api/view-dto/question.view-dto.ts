@@ -6,7 +6,7 @@ export class QuestionViewDto {
   correctAnswers: string[];
   published: boolean;
   createdAt: string;
-  updatedAt: string | null;
+  updatedAt: string;
 
   static mapToView(question: Question): QuestionViewDto {
     return {
@@ -14,12 +14,8 @@ export class QuestionViewDto {
       body: question.body,
       correctAnswers: question.correctAnswers,
       published: question.published,
-      createdAt: question.createdAt
-        ? new Date(question.createdAt).toISOString()
-        : new Date().toISOString(),
-      updatedAt: question.updatedAt
-        ? new Date(question.updatedAt).toISOString()
-        : null,
+      createdAt: question.createdAt.toISOString(),
+      updatedAt: question.updatedAt.toISOString(),
     };
   }
 }

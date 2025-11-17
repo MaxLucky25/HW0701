@@ -39,21 +39,12 @@ export class QuestionsRepository {
   }
 
   async findRandomQuestions(dto: FindRandomQuestionsDto): Promise<Question[]> {
-    // Получаем все опубликованные вопросы
-    const allQuestions = await this.repository.find({
-      where: { published: true },
-    });
-
-    // Перемешиваем массив и берем нужное количество
-    const shuffled = allQuestions.sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, dto.count);
-  }
-
-  async findAllPublished(): Promise<Question[]> {
-    return await this.repository.find({
-      where: { published: true },
-      order: { createdAt: 'DESC' },
-    });
+    return await this.repository
+      .createQueryBuilder('question')
+      .where('question.published = :published', { published: true })
+      .orderBy('RANDOM()')
+      .limit(dto.count)
+      .getMany();
   }
 
   async createQuestion(dto: CreateQuestionDomainDto): Promise<Question> {

@@ -9,6 +9,7 @@ import {
 } from 'typeorm';
 import { GameQuestion } from './game-question.entity';
 import { Player } from './player.entity';
+import { CreateGameAnswerDomainDto } from '../dto/create-game-answer.domain.dto';
 
 @Entity('game_answers')
 @Index(['gameQuestionId', 'playerId'], { unique: true }) // один ответ игрока на конкретный вопрос
@@ -51,26 +52,14 @@ export class GameAnswer {
   /**
    * Статический метод для создания ответа игрока
    */
-  static create(
-    gameQuestionId: string,
-    playerId: string,
-    answer: string,
-    isCorrect: boolean,
-  ): GameAnswer {
+  static create(dto: CreateGameAnswerDomainDto): GameAnswer {
     const gameAnswer = new GameAnswer();
-    gameAnswer.gameQuestionId = gameQuestionId;
-    gameAnswer.playerId = playerId;
-    gameAnswer.answer = answer;
-    gameAnswer.isCorrect = isCorrect;
+    gameAnswer.gameQuestionId = dto.gameQuestionId;
+    gameAnswer.playerId = dto.playerId;
+    gameAnswer.answer = dto.answer;
+    gameAnswer.isCorrect = dto.isCorrect;
     // addedAt установится автоматически через @CreateDateColumn
 
     return gameAnswer;
-  }
-
-  /**
-   * Проверить, правильный ли ответ
-   */
-  isAnswerCorrect(): boolean {
-    return this.isCorrect;
   }
 }

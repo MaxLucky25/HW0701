@@ -54,11 +54,11 @@ export class PairGame {
   /**
    * Статический метод для создания новой игры
    */
-  static create(firstPlayerId: string): PairGame {
+  static create(): PairGame {
     const game = new PairGame();
-    game.status = GameStatus.PENDING_SECOND_PLAYER;
     game.startGameDate = null;
     game.finishGameDate = null;
+    // status установится автоматически через @Column({ default: GameStatus.PENDING_SECOND_PLAYER })
     // createdAt и updatedAt установятся автоматически через @CreateDateColumn и @UpdateDateColumn
 
     return game;
@@ -68,12 +68,6 @@ export class PairGame {
    * Начать игру (когда подключился второй игрок)
    */
   startGame(): void {
-    if (this.status !== GameStatus.PENDING_SECOND_PLAYER) {
-      throw new Error(
-        'Game can only be started from PendingSecondPlayer status',
-      );
-    }
-
     this.status = GameStatus.ACTIVE;
     this.startGameDate = new Date();
     // updatedAt обновится автоматически через @UpdateDateColumn
@@ -83,20 +77,9 @@ export class PairGame {
    * Завершить игру
    */
   finishGame(): void {
-    if (this.status !== GameStatus.ACTIVE) {
-      throw new Error('Game can only be finished from Active status');
-    }
-
     this.status = GameStatus.FINISHED;
     this.finishGameDate = new Date();
     // updatedAt обновится автоматически через @UpdateDateColumn
-  }
-
-  /**
-   * Проверить, есть ли второй игрок
-   */
-  hasSecondPlayer(): boolean {
-    return this.players?.length === 2;
   }
 
   /**

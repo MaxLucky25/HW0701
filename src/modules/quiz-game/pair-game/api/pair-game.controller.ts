@@ -14,7 +14,7 @@ import { ExtractUserForJwtGuard } from '../../../auth-manage/guards/decorators/p
 import { UserContextDto } from '../../../auth-manage/guards/dto/user-context.dto';
 import { PairGameViewDto } from './view-dto/pair-game.view-dto';
 import { SubmitAnswerInputDto } from './input-dto/submit-answer.input.dto';
-import { SubmitAnswerResponseViewDto } from './view-dto/submit-answer-response.view-dto';
+import { AnswerViewDto } from './view-dto/answer.view-dto';
 import { GetCurrentGameQuery } from '../application/query-usecase/get-current-game.usecase';
 import { GetGameByIdQuery } from '../application/query-usecase/get-game-by-id.usecase';
 import { ConnectToGameCommand } from '../application/usecase/connect-to-game.usecase';
@@ -55,7 +55,7 @@ export class PairGameController {
   async submitAnswer(
     @Body() body: SubmitAnswerInputDto,
     @ExtractUserForJwtGuard() user: UserContextDto,
-  ): Promise<SubmitAnswerResponseViewDto> {
+  ): Promise<AnswerViewDto> {
     return this.commandBus.execute(new SubmitAnswerCommand(user.id, body));
   }
 }

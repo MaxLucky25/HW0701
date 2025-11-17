@@ -4,10 +4,9 @@ import { GameAnswerRepository } from '../../infrastructure/game-answer.repositor
 import { GameQuestionRepository } from '../../infrastructure/game-question.repository';
 import { PlayerRepository } from '../../infrastructure/player.repository';
 import { SubmitAnswerInputDto } from '../../api/input-dto/submit-answer.input.dto';
-import { SubmitAnswerResponseViewDto } from '../../api/view-dto/submit-answer-response.view-dto';
+import { AnswerViewDto } from '../../api/view-dto/answer.view-dto';
 import { DomainException } from '../../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../../core/exceptions/domain-exception-codes';
-import { GameStatus } from '../../domain/dto/game-status.enum';
 import { GameAnswer } from '../../domain/entities/game-answer.entity';
 
 export class SubmitAnswerCommand {
@@ -19,7 +18,7 @@ export class SubmitAnswerCommand {
 
 @CommandHandler(SubmitAnswerCommand)
 export class SubmitAnswerUseCase
-  implements ICommandHandler<SubmitAnswerCommand, SubmitAnswerResponseViewDto>
+  implements ICommandHandler<SubmitAnswerCommand, AnswerViewDto>
 {
   constructor(
     private pairGameRepository: PairGameRepository,
@@ -28,15 +27,13 @@ export class SubmitAnswerUseCase
     private playerRepository: PlayerRepository,
   ) {}
 
-  async execute(
-    command: SubmitAnswerCommand,
-  ): Promise<SubmitAnswerResponseViewDto> {
+  async execute(command: SubmitAnswerCommand): Promise<AnswerViewDto> {
     // Находим активную игру пользователя
     const game = await this.pairGameRepository.findActiveGameByUserId({
       userId: command.userId,
     });
 
-    if (!game || game.status !== GameStatus.ACTIVE) {
+    if (!game || !game.isActive()) {
       throw new DomainException({
         code: DomainExceptionCode.Forbidden,
         message:
@@ -106,15 +103,15 @@ export class SubmitAnswerUseCase
     const isCorrect = nextQuestion.question.isAnswerCorrect(command.dto.answer);
 
     // Создаем ответ
-    const answer = GameAnswer.create(
-      nextQuestion.id,
-      player.id,
-      command.dto.answer,
-      isCorrect,
-    );
+    const answer = GameAnswer.create({
+      gameQuestionId: nextQuestion.id,
+      playerId: player.id,
+      answer: command.dto.answer,
+      isCorrect: isCorrect,
+    });
 
     // Сохраняем ответ
-    const savedAnswer = await this.gameAnswerRepository.save(answer);
+    await this.gameAnswerRepository.save(answer);
 
     // Если ответ правильный, увеличиваем счет
     if (isCorrect) {
@@ -182,6 +179,6 @@ export class SubmitAnswerUseCase
       await this.pairGameRepository.finishGame(game);
     }
 
-    return SubmitAnswerResponseViewDto.mapToView(fullAnswer);
+    return AnswerViewDto.mapToView(fullAnswer);
   }
 }

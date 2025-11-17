@@ -6,9 +6,6 @@ export class AnswerViewDto {
   addedAt: string;
 
   static mapToView(answer: GameAnswer): AnswerViewDto {
-    if (!answer.gameQuestion) {
-      throw new Error('GameQuestion is not loaded for GameAnswer');
-    }
     return {
       questionId: answer.gameQuestion.questionId,
       answerStatus: answer.isCorrect ? 'Correct' : 'Incorrect',
