@@ -3,7 +3,6 @@ import {
   PrimaryGeneratedColumn,
   Column,
   CreateDateColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { CreateQuestionDomainDto } from '../dto/create-question.domain.dto';
 import { UpdateQuestionDomainDto } from '../dto/update-question.domain.dto';
@@ -16,7 +15,7 @@ export class Question {
   @Column({ type: 'text' })
   body: string;
 
-  @Column({ type: 'simple-array', name: 'correct_answers' })
+  @Column({ type: 'json', name: 'correct_answers' })
   correctAnswers: string[];
 
   @Column({ default: false })
@@ -28,11 +27,12 @@ export class Question {
   })
   createdAt: Date;
 
-  @UpdateDateColumn({
+  @Column({
     name: 'updated_at',
     type: 'timestamp',
+    nullable: true,
   })
-  updatedAt: Date;
+  updatedAt: Date | null;
 
   /**
    * Статический метод для создания нового вопроса
@@ -42,7 +42,8 @@ export class Question {
     question.body = dto.body;
     question.correctAnswers = dto.correctAnswers;
     question.published = false;
-    // createdAt и updatedAt установятся автоматически через @CreateDateColumn и @UpdateDateColumn
+    question.updatedAt = null; // При создании updatedAt должен быть null
+    // createdAt установится автоматически через @CreateDateColumn
 
     return question;
   }
@@ -52,7 +53,7 @@ export class Question {
    */
   publish(): void {
     this.published = true;
-    // updatedAt обновится автоматически через @UpdateDateColumn
+    this.updatedAt = new Date();
   }
 
   /**
@@ -60,7 +61,7 @@ export class Question {
    */
   unpublish(): void {
     this.published = false;
-    // updatedAt обновится автоматически через @UpdateDateColumn
+    this.updatedAt = new Date();
   }
 
   /**
@@ -73,7 +74,7 @@ export class Question {
     if (dto.correctAnswers !== undefined) {
       this.correctAnswers = dto.correctAnswers;
     }
-    // updatedAt обновится автоматически через @UpdateDateColumn
+    this.updatedAt = new Date();
   }
 
   /**

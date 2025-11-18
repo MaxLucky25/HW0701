@@ -37,6 +37,20 @@ export class PairGameQueryRepository {
     gameId: string,
     userId: string,
   ): Promise<PairGame | null> {
+    // Сначала проверяем, существует ли игра
+    const gameExists = await this.repository.findOne({
+      where: { id: gameId },
+    });
+
+    if (!gameExists) {
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'Game not found!',
+        field: 'Game',
+      });
+    }
+
+    // Теперь проверяем, участвует ли пользователь в игре
     const game = await this.repository
       .createQueryBuilder('game')
       .innerJoin('game.players', 'player')
@@ -50,14 +64,8 @@ export class PairGameQueryRepository {
       .andWhere('player.userId = :userId', { userId })
       .getOne();
 
-    if (!game) {
-      throw new DomainException({
-        code: DomainExceptionCode.NotFound,
-        message: 'Game not found!',
-        field: 'Game',
-      });
-    }
-
+    // Если игра существует, но пользователь не участвует, возвращаем null
+    // Use case обработает это как Forbidden
     return game;
   }
 }
