@@ -11,8 +11,11 @@ export enum QuestionsSortBy {
 
 export class GetQuestionsQueryParams extends BaseQueryParams {
   @IsEnum(QuestionsSortBy)
+  @IsOptional()
   sortBy: QuestionsSortBy = QuestionsSortBy.CreatedAt;
 
+  @IsEnum(SortDirection)
+  @IsOptional()
   sortDirection: SortDirection = SortDirection.Desc;
 
   @IsString()

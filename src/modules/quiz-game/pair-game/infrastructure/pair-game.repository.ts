@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, Repository, EntityManager } from 'typeorm';
 import { PairGame } from '../domain/entities/pair-game.entity';
 import { GameStatus } from '../domain/dto/game-status.enum';
 import { Player } from '../domain/entities/player.entity';
@@ -62,53 +62,78 @@ export class PairGameRepository {
   /**
    * Найти игру в ожидании второго игрока (для матчмейкинга)
    * Используется с FOR UPDATE SKIP LOCKED для безопасного матчмейкинга
+   * Должен вызываться внутри транзакции
    */
   async findWaitingGameForMatchmaking(
     dto: FindWaitingGameDto,
+    manager?: EntityManager,
   ): Promise<PairGame | null> {
-    return await this.dataSource
-      .getRepository(PairGame)
-      .createQueryBuilder('game')
-      .where('game.status = :status', {
-        status: GameStatus.PENDING_SECOND_PLAYER,
-      })
-      .andWhere(
-        'game.id NOT IN (SELECT game_id FROM players WHERE user_id = :userId)',
-        { userId: dto.excludeUserId },
-      )
-      .orderBy('game.createdAt', 'ASC')
-      .setLock('pessimistic_write')
-      .getOne();
+    const repository = manager
+      ? manager.getRepository(PairGame)
+      : this.dataSource.getRepository(PairGame);
+
+    // Используем raw SQL с SKIP LOCKED для правильной блокировки и избежания гонок
+    const rawResult = await (manager || this.dataSource).query(
+      `SELECT id FROM pair_games 
+       WHERE status = $1 
+       AND id NOT IN (SELECT game_id FROM players WHERE user_id = $2)
+       ORDER BY created_at ASC
+       FOR UPDATE SKIP LOCKED
+       LIMIT 1`,
+      [GameStatus.PENDING_SECOND_PLAYER, dto.excludeUserId],
+    );
+
+    if (rawResult.length === 0) {
+      return null;
+    }
+
+    // Загружаем полную сущность через EntityManager
+    return await repository.findOne({
+      where: { id: rawResult[0].id },
+    });
   }
 
-  async createGame(userId: string): Promise<PairGame> {
-    return await this.dataSource.transaction(async (manager) => {
+  async createGame(userId: string, manager?: EntityManager): Promise<PairGame> {
+    const execute = async (mgr: EntityManager) => {
       // Создаем игру
       const game = PairGame.create();
-      const savedGame = await manager.save(PairGame, game);
+      const savedGame = await mgr.save(PairGame, game);
 
-      // Создаем первого игрока
+      // Создаем первого игрока через стандартные методы TypeORM
+      // Устанавливаем объект game, TypeORM автоматически синхронизирует gameId
       const firstPlayer = Player.create({
         gameId: savedGame.id,
         userId: userId,
         role: PlayerRole.FIRST_PLAYER,
       });
-      await manager.save(Player, firstPlayer);
+
+      // Устанавливаем связь game - TypeORM автоматически синхронизирует gameId
+      firstPlayer.game = savedGame;
+
+      // Сохраняем через EntityManager
+      await mgr.save(Player, firstPlayer);
 
       return savedGame;
-    });
+    };
+
+    if (manager) {
+      return await execute(manager);
+    } else {
+      return await this.dataSource.transaction(execute);
+    }
   }
 
   async joinGameToWaitingPlayer(
     gameId: string,
     userId: string,
     questions: Question[],
+    manager?: EntityManager,
   ): Promise<PairGame> {
-    return await this.dataSource.transaction(async (manager) => {
-      // Находим игру
-      const game = await manager.findOne(PairGame, {
+    const execute = async (mgr: EntityManager) => {
+      // Находим игру БЕЗ загрузки связей, чтобы избежать проблем с каскадными операциями
+      const game = await mgr.findOne(PairGame, {
         where: { id: gameId },
-        relations: ['players'],
+        // НЕ загружаем relations, чтобы TypeORM не пытался синхронизировать связи
       });
 
       if (!game) {
@@ -119,13 +144,34 @@ export class PairGameRepository {
         });
       }
 
-      // Создаем второго игрока
+      // Создаем второго игрока через стандартные методы TypeORM
+      // Устанавливаем объект game, TypeORM автоматически синхронизирует gameId
       const secondPlayer = Player.create({
         gameId: gameId,
         userId: userId,
         role: PlayerRole.SECOND_PLAYER,
       });
-      await manager.save(Player, secondPlayer);
+
+      // Устанавливаем связь game - TypeORM автоматически синхронизирует gameId
+      secondPlayer.game = game;
+
+      // Сохраняем через EntityManager
+      try {
+        await mgr.save(Player, secondPlayer);
+      } catch (error: any) {
+        // Если ошибка уникального индекса - значит игрок уже существует (гонка)
+        if (error.code === '23505') {
+          // Загружаем существующего игрока
+          const existingPlayer = await mgr.findOne(Player, {
+            where: { gameId, userId },
+          });
+          if (!existingPlayer) {
+            throw error;
+          }
+        } else {
+          throw error;
+        }
+      }
 
       // Создаем 5 вопросов для игры
       const gameQuestions = questions.map((question, index) =>
@@ -135,7 +181,7 @@ export class PairGameRepository {
           order: index,
         }),
       );
-      await manager.save(GameQuestion, gameQuestions);
+      await mgr.save(GameQuestion, gameQuestions);
 
       // Валидируем, что игра в правильном статусе перед началом
       if (!game.isPendingSecondPlayer()) {
@@ -148,10 +194,16 @@ export class PairGameRepository {
 
       // Начинаем игру
       game.startGame();
-      await manager.save(PairGame, game);
+      await mgr.save(PairGame, game);
 
       return game;
-    });
+    };
+
+    if (manager) {
+      return await execute(manager);
+    } else {
+      return await this.dataSource.transaction(execute);
+    }
   }
 
   async save(game: PairGame): Promise<PairGame> {

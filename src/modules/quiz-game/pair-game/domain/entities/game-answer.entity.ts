@@ -24,7 +24,7 @@ export class GameAnswer {
   @JoinColumn({ name: 'game_question_id' })
   gameQuestion: GameQuestion;
 
-  @Column({ name: 'game_question_id' })
+  @Column({ name: 'game_question_id', type: 'uuid' })
   gameQuestionId: string;
 
   @ManyToOne(() => Player, (player) => player.answers, {
@@ -34,7 +34,7 @@ export class GameAnswer {
   @JoinColumn({ name: 'player_id' })
   player: Player;
 
-  @Column({ name: 'player_id' })
+  @Column({ name: 'player_id', type: 'uuid' })
   playerId: string;
 
   @Column({ type: 'text' })

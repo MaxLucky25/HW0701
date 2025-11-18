@@ -42,11 +42,14 @@ export class SubmitAnswerUseCase
       });
     }
 
-    // Загружаем игрока
-    const player = await this.playerRepository.findByGameAndUser({
-      gameId: game.id,
-      userId: command.userId,
-    });
+    // Загружаем игрока БЕЗ relations, чтобы избежать проблем с синхронизацией связей
+    const player = await this.playerRepository.findByGameAndUser(
+      {
+        gameId: game.id,
+        userId: command.userId,
+      },
+      false, // Не загружаем answers
+    );
 
     if (!player) {
       throw new DomainException({
@@ -110,7 +113,12 @@ export class SubmitAnswerUseCase
       isCorrect: isCorrect,
     });
 
-    // Сохраняем ответ
+    // Устанавливаем связи - TypeORM автоматически синхронизирует playerId и gameQuestionId
+    answer.player = player;
+    answer.gameQuestion = nextQuestion;
+
+    // Сохраняем ответ через стандартный метод TypeORM
+    // Важно: player загружен БЕЗ relations, поэтому TypeORM не будет пытаться синхронизировать answers
     await this.gameAnswerRepository.save(answer);
 
     // Если ответ правильный, увеличиваем счет
@@ -124,13 +132,13 @@ export class SubmitAnswerUseCase
     }
 
     // Сохраняем игрока
-    const savedPlayer = await this.playerRepository.save(player);
+    await this.playerRepository.save(player);
 
     // Загружаем полные данные ответа для возврата с relations
     const fullAnswer =
       await this.gameAnswerRepository.findByGameQuestionAndPlayer({
         gameQuestionId: nextQuestion.id,
-        playerId: savedPlayer.id,
+        playerId: player.id,
       });
 
     if (!fullAnswer) {

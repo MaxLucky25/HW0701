@@ -40,13 +40,14 @@ export class PlayerRepository {
 
   async findByGameAndUser(
     dto: FindPlayerByGameAndUserDto,
+    loadAnswers: boolean = false,
   ): Promise<Player | null> {
     return await this.repository.findOne({
       where: {
         gameId: dto.gameId,
         userId: dto.userId,
       },
-      relations: ['answers'],
+      relations: loadAnswers ? ['answers'] : [],
     });
   }
 

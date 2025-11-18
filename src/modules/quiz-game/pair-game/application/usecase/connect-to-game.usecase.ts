@@ -1,4 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { InjectDataSource } from '@nestjs/typeorm';
+import { DataSource } from 'typeorm';
 import { PairGameRepository } from '../../infrastructure/pair-game.repository';
 import { PairGameViewDto } from '../../api/view-dto/pair-game.view-dto';
 import { QuestionsRepository } from '../../../questions/infrastructure/questions.repository';
@@ -18,10 +20,12 @@ export class ConnectToGameUseCase
     private pairGameRepository: PairGameRepository,
     private pairGameQueryRepository: PairGameQueryRepository,
     private questionsRepository: QuestionsRepository,
+    @InjectDataSource()
+    private readonly dataSource: DataSource,
   ) {}
 
   async execute(command: ConnectToGameCommand): Promise<PairGameViewDto> {
-    // Проверяем, есть ли у пользователя активная игра
+    // Проверяем, есть ли у пользователя активная игра (вне транзакции)
     const activeGame = await this.pairGameRepository.findActiveGameByUserId({
       userId: command.userId,
     });
@@ -34,38 +38,45 @@ export class ConnectToGameUseCase
       });
     }
 
-    // Ищем игру в ожидании второго игрока
-    const waitingGame =
-      await this.pairGameRepository.findWaitingGameForMatchmaking({
-        excludeUserId: command.userId,
-      });
+    // Вся логика матчмейкинга выполняется в транзакции
+    await this.dataSource.transaction(async (manager) => {
+      // Ищем игру в ожидании второго игрока (внутри транзакции с блокировкой)
+      const waitingGame =
+        await this.pairGameRepository.findWaitingGameForMatchmaking(
+          {
+            excludeUserId: command.userId,
+          },
+          manager,
+        );
 
-    if (waitingGame) {
-      // Находим 5 случайных опубликованных вопросов
-      const questions = await this.questionsRepository.findRandomQuestions({
-        count: 5,
-      });
-
-      if (questions.length < 5) {
-        throw new DomainException({
-          code: DomainExceptionCode.BadRequest,
-          message: 'Not enough published questions available',
-          field: 'Questions',
+      if (waitingGame) {
+        // Находим 5 случайных опубликованных вопросов
+        const questions = await this.questionsRepository.findRandomQuestions({
+          count: 5,
         });
+
+        if (questions.length < 5) {
+          throw new DomainException({
+            code: DomainExceptionCode.BadRequest,
+            message: 'Not enough published questions available',
+            field: 'Questions',
+          });
+        }
+
+        // Подключаемся к ожидающей игре (внутри транзакции)
+        await this.pairGameRepository.joinGameToWaitingPlayer(
+          waitingGame.id,
+          command.userId,
+          questions,
+          manager,
+        );
+      } else {
+        // Создаем новую игру (внутри транзакции)
+        await this.pairGameRepository.createGame(command.userId, manager);
       }
+    });
 
-      // Подключаемся к ожидающей игре
-      await this.pairGameRepository.joinGameToWaitingPlayer(
-        waitingGame.id,
-        command.userId,
-        questions,
-      );
-    } else {
-      // Создаем новую игру
-      await this.pairGameRepository.createGame(command.userId);
-    }
-
-    // Загружаем полные данные игры для ответа
+    // Загружаем полные данные игры для ответа (после коммита транзакции)
     const fullGame = await this.pairGameQueryRepository.getCurrentGameByUserId({
       userId: command.userId,
     });

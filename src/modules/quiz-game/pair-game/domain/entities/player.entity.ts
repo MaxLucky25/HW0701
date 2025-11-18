@@ -27,7 +27,7 @@ export class Player {
   @JoinColumn({ name: 'game_id' })
   game: PairGame;
 
-  @Column({ name: 'game_id' })
+  @Column({ name: 'game_id', type: 'uuid' })
   gameId: string;
 
   @ManyToOne(() => User, { nullable: false })
