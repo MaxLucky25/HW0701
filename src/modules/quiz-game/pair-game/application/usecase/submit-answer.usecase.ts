@@ -33,7 +33,17 @@ export class SubmitAnswerUseCase
       userId: command.userId,
     });
 
-    if (!game || !game.isActive()) {
+    if (!game) {
+      throw new DomainException({
+        code: DomainExceptionCode.Forbidden,
+        message:
+          'Current user is not inside active pair or user is in active pair but has already answered to all questions',
+        field: 'Game',
+      });
+    }
+
+    // Проверяем, что игра активна (не в ожидании второго игрока)
+    if (!game.isActive()) {
       throw new DomainException({
         code: DomainExceptionCode.Forbidden,
         message:

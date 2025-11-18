@@ -2,11 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { GameAnswer } from '../domain/entities/game-answer.entity';
-import {
-  FindAnswerByGameQuestionAndPlayerDto,
-  FindAnswersByPlayerIdDto,
-  FindAnswersByGameQuestionIdDto,
-} from './dto/game-answer-repo.dto';
+import { FindAnswerByGameQuestionAndPlayerDto } from './dto/game-answer-repo.dto';
 
 @Injectable()
 export class GameAnswerRepository {
@@ -24,25 +20,6 @@ export class GameAnswerRepository {
         playerId: dto.playerId,
       },
       relations: ['gameQuestion', 'gameQuestion.question'],
-    });
-  }
-
-  async findByPlayerId(dto: FindAnswersByPlayerIdDto): Promise<GameAnswer[]> {
-    return await this.repository.find({
-      where: { playerId: dto.playerId },
-      relations: ['gameQuestion', 'gameQuestion.question'],
-      order: {
-        addedAt: 'ASC',
-      },
-    });
-  }
-
-  async findByGameQuestionId(
-    dto: FindAnswersByGameQuestionIdDto,
-  ): Promise<GameAnswer[]> {
-    return await this.repository.find({
-      where: { gameQuestionId: dto.gameQuestionId },
-      relations: ['player'],
     });
   }
 

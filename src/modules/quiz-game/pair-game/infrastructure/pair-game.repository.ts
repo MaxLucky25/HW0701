@@ -8,9 +8,9 @@ import { Player } from '../domain/entities/player.entity';
 import { GameQuestion } from '../domain/entities/game-question.entity';
 import { Question } from '../../questions/domain/entities/question.entity';
 import {
-  FindGameByIdDto,
   FindActiveGameByUserIdDto,
   FindWaitingGameDto,
+  GameIdResultDto,
 } from './dto/pair-game-repo.dto';
 import { DomainException } from '../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
@@ -24,27 +24,6 @@ export class PairGameRepository {
     @InjectDataSource()
     private readonly dataSource: DataSource,
   ) {}
-
-  async findById(dto: FindGameByIdDto): Promise<PairGame | null> {
-    return await this.repository.findOne({
-      where: { id: dto.id },
-      relations: ['players', 'questions'],
-    });
-  }
-
-  async findByIdOrNotFoundFail(dto: FindGameByIdDto): Promise<PairGame> {
-    const game = await this.findById(dto);
-
-    if (!game) {
-      throw new DomainException({
-        code: DomainExceptionCode.NotFound,
-        message: 'Game not found!',
-        field: 'Game',
-      });
-    }
-
-    return game;
-  }
 
   async findActiveGameByUserId(
     dto: FindActiveGameByUserIdDto,
@@ -73,23 +52,42 @@ export class PairGameRepository {
       : this.dataSource.getRepository(PairGame);
 
     // Используем raw SQL с SKIP LOCKED для правильной блокировки и избежания гонок
-    const rawResult = await (manager || this.dataSource).query(
-      `SELECT id FROM pair_games 
-       WHERE status = $1 
-       AND id NOT IN (SELECT game_id FROM players WHERE user_id = $2)
-       ORDER BY created_at ASC
-       FOR UPDATE SKIP LOCKED
-       LIMIT 1`,
-      [GameStatus.PENDING_SECOND_PLAYER, dto.excludeUserId],
-    );
+    // Разделяем логику для правильной типизации: EntityManager и DataSource имеют разные сигнатуры query
+    let rawResult: GameIdResultDto[];
+    if (manager) {
+      rawResult = await manager.query<GameIdResultDto[]>(
+        `SELECT id FROM pair_games 
+         WHERE status = $1 
+         AND id NOT IN (SELECT game_id FROM players WHERE user_id = $2)
+         ORDER BY created_at ASC
+         FOR UPDATE SKIP LOCKED
+         LIMIT 1`,
+        [GameStatus.PENDING_SECOND_PLAYER, dto.excludeUserId],
+      );
+    } else {
+      rawResult = await this.dataSource.query<GameIdResultDto[]>(
+        `SELECT id FROM pair_games 
+         WHERE status = $1 
+         AND id NOT IN (SELECT game_id FROM players WHERE user_id = $2)
+         ORDER BY created_at ASC
+         FOR UPDATE SKIP LOCKED
+         LIMIT 1`,
+        [GameStatus.PENDING_SECOND_PLAYER, dto.excludeUserId],
+      );
+    }
 
-    if (rawResult.length === 0) {
+    if (!rawResult || rawResult.length === 0) {
+      return null;
+    }
+
+    const firstResult = rawResult[0];
+    if (!firstResult) {
       return null;
     }
 
     // Загружаем полную сущность через EntityManager
     return await repository.findOne({
-      where: { id: rawResult[0].id },
+      where: { id: firstResult.id },
     });
   }
 
@@ -158,9 +156,14 @@ export class PairGameRepository {
       // Сохраняем через EntityManager
       try {
         await mgr.save(Player, secondPlayer);
-      } catch (error: any) {
+      } catch (error: unknown) {
         // Если ошибка уникального индекса - значит игрок уже существует (гонка)
-        if (error.code === '23505') {
+        if (
+          error &&
+          typeof error === 'object' &&
+          'code' in error &&
+          error.code === '23505'
+        ) {
           // Загружаем существующего игрока
           const existingPlayer = await mgr.findOne(Player, {
             where: { gameId, userId },
@@ -211,8 +214,21 @@ export class PairGameRepository {
   }
 
   async finishGame(game: PairGame): Promise<PairGame> {
+    // Перезагружаем игру из базы данных, чтобы получить актуальный статус
+    const freshGame = await this.repository.findOne({
+      where: { id: game.id },
+    });
+
+    if (!freshGame) {
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'Game not found!',
+        field: 'Game',
+      });
+    }
+
     // Валидируем, что игра в правильном статусе перед завершением
-    if (!game.isActive()) {
+    if (!freshGame.isActive()) {
       throw new DomainException({
         code: DomainExceptionCode.BadRequest,
         message: 'Game can only be finished from Active status',
@@ -220,7 +236,7 @@ export class PairGameRepository {
       });
     }
 
-    game.finishGame();
-    return await this.repository.save(game);
+    freshGame.finishGame();
+    return await this.repository.save(freshGame);
   }
 }

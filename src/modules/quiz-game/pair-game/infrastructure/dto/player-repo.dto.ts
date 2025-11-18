@@ -1,7 +1,3 @@
-export class FindPlayerByIdDto {
-  id: string;
-}
-
 export class FindPlayerByGameAndUserDto {
   gameId: string;
   userId: string;

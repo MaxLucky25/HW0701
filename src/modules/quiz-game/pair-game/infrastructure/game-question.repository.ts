@@ -19,18 +19,4 @@ export class GameQuestionRepository {
       },
     });
   }
-
-  async findByGameIdAndOrder(
-    gameId: string,
-    order: number,
-  ): Promise<GameQuestion | null> {
-    return await this.repository.findOne({
-      where: { gameId, order },
-      relations: ['question', 'answers'],
-    });
-  }
-
-  async saveMany(gameQuestions: GameQuestion[]): Promise<GameQuestion[]> {
-    return await this.repository.save(gameQuestions);
-  }
 }

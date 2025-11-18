@@ -12,6 +12,7 @@ import { QueryBus, CommandBus } from '@nestjs/cqrs';
 import { JwtAuthGuard } from '../../../auth-manage/guards/bearer/jwt-auth-guard';
 import { ExtractUserForJwtGuard } from '../../../auth-manage/guards/decorators/param/extract-user-for-jwt-guard.decorator';
 import { UserContextDto } from '../../../auth-manage/guards/dto/user-context.dto';
+import { UuidValidationPipe } from '../../../../core/pipes/uuid-validator-transformation-pipe-service';
 import { PairGameViewDto } from './view-dto/pair-game.view-dto';
 import { SubmitAnswerInputDto } from './input-dto/submit-answer.input.dto';
 import { AnswerViewDto } from './view-dto/answer.view-dto';
@@ -37,13 +38,14 @@ export class PairGameController {
 
   @Get(':id')
   async getGameById(
-    @Param('id') id: string,
+    @Param('id', UuidValidationPipe) id: string,
     @ExtractUserForJwtGuard() user: UserContextDto,
   ): Promise<PairGameViewDto> {
     return this.queryBus.execute(new GetGameByIdQuery(id, user.id));
   }
 
   @Post('connection')
+  @HttpCode(HttpStatus.OK)
   async connectToGame(
     @ExtractUserForJwtGuard() user: UserContextDto,
   ): Promise<PairGameViewDto> {
