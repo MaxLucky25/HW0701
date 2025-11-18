@@ -30,6 +30,8 @@ export class PairGameQueryRepository {
       .andWhere('game.status IN (:...statuses)', {
         statuses: [GameStatus.PENDING_SECOND_PLAYER, GameStatus.ACTIVE],
       })
+      .orderBy('questions.order', 'ASC')
+      .addOrderBy('answers.addedAt', 'ASC')
       .getOne();
   }
 
@@ -62,6 +64,8 @@ export class PairGameQueryRepository {
       .leftJoinAndSelect('answers.gameQuestion', 'answerGameQuestion')
       .where('game.id = :gameId', { gameId })
       .andWhere('player.userId = :userId', { userId })
+      .orderBy('questions.order', 'ASC')
+      .addOrderBy('answers.addedAt', 'ASC')
       .getOne();
 
     // Если игра существует, но пользователь не участвует, возвращаем null
