@@ -7,6 +7,7 @@ import { PublishedStatuses } from './published-statuses.enum';
 
 export enum QuestionsSortBy {
   CreatedAt = 'createdAt',
+  Body = 'body',
 }
 
 export class GetQuestionsQueryParams extends BaseQueryParams {

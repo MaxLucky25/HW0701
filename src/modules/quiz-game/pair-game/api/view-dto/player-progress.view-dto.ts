@@ -20,7 +20,7 @@ export class PlayerProgressViewDto {
         id: player.user.id,
         login: player.user.login,
       },
-      score: player.score,
+      score: player.score + player.bonus,
     };
   }
 }
