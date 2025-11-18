@@ -11,7 +11,11 @@ export enum QuestionsSortBy {
 
 export class GetQuestionsQueryParams extends BaseQueryParams {
   @IsEnum(QuestionsSortBy)
+  @IsOptional()
   sortBy = QuestionsSortBy.CreatedAt;
+
+  @IsEnum(SortDirection)
+  @IsOptional()
   sortDirection = SortDirection.Desc;
 
   @IsString()
@@ -19,5 +23,6 @@ export class GetQuestionsQueryParams extends BaseQueryParams {
   bodySearchTerm: string | null = null;
 
   @IsEnum(PublishedStatuses)
+  @IsOptional()
   publishedStatus = PublishedStatuses.ALL;
 }

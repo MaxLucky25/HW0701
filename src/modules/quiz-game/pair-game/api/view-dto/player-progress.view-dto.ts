@@ -12,7 +12,9 @@ export class PlayerProgressViewDto {
   static mapToView(player: Player): PlayerProgressViewDto {
     return {
       answers: player.answers
-        ? player.answers.map((answer) => AnswerViewDto.mapToView(answer))
+        ? player.answers
+            .sort((a, b) => a.addedAt.getTime() - b.addedAt.getTime())
+            .map((answer) => AnswerViewDto.mapToView(answer))
         : [],
       player: {
         id: player.user.id,

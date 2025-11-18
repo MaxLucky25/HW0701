@@ -2,6 +2,7 @@ import {
   INestApplication,
   ValidationError,
   ValidationPipe,
+  Logger,
 } from '@nestjs/common';
 import {
   DomainException,
@@ -39,6 +40,8 @@ export const errorFormatter = (
 };
 
 export function pipesSetup(app: INestApplication) {
+  const logger = new Logger('ValidationPipe');
+
   //Глобальный пайп для валидации входящих данных.
   // ObjectIdValidationTransformationPipe теперь доступен глобально через CoreModule
   app.useGlobalPipes(
@@ -51,7 +54,13 @@ export function pipesSetup(app: INestApplication) {
       stopAtFirstError: true,
       //Для преобразования ошибок класс валидатора в необходимый вид
       exceptionFactory: (errors) => {
+        // Логируем ошибки валидации для отладки
+        logger.error('Validation errors:', JSON.stringify(errors, null, 2));
         const formattedErrors = errorFormatter(errors);
+        logger.error(
+          'Formatted validation errors:',
+          JSON.stringify(formattedErrors, null, 2),
+        );
 
         throw new DomainException({
           code: DomainExceptionCode.ValidationError,
