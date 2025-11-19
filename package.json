@@ -20,6 +20,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "cross-env ENV_FILE_PATH=env/.env.testing NODE_ENV=testing jest --config jest.config.json --testPathPattern=test --runInBand",
+    "test:integration": "cross-env ENV_FILE_PATH=env/.env.testing NODE_ENV=testing jest --config jest.config.json --testPathPattern=test/.*\\.integration\\.spec\\.ts --runInBand",
     "test:unit": "cross-env ENV_FILE_PATH=env/.env.testing NODE_ENV=testing jest --config jest.config.json --testPathPattern=src",
     "debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register src/main.ts",
     "migration:generate": "cross-env ENV_FILE_PATH=env/.env.development typeorm-ts-node-commonjs migration:generate -d src/configs/typeorm.config.ts",
