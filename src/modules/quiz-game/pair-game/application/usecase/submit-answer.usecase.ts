@@ -8,6 +8,7 @@ import { AnswerViewDto } from '../../api/view-dto/answer.view-dto';
 import { DomainException } from '../../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../../core/exceptions/domain-exception-codes';
 import { GameAnswer } from '../../domain/entities/game-answer.entity';
+import { GAME_CONSTANTS } from '../../domain/dto/game.constants';
 
 export class SubmitAnswerCommand {
   constructor(
@@ -74,7 +75,7 @@ export class SubmitAnswerUseCase
       player.id,
     );
 
-    if (answersCount >= 5) {
+    if (answersCount >= GAME_CONSTANTS.QUESTIONS_PER_GAME) {
       throw new DomainException({
         code: DomainExceptionCode.Forbidden,
         message:
@@ -136,7 +137,7 @@ export class SubmitAnswerUseCase
       player.incrementScore();
     }
 
-    // Если это последний вопрос (5-й), устанавливаем время завершения
+    // Если это последний вопрос, устанавливаем время завершения
     if (nextQuestion.isLast()) {
       player.setFinishedAt(new Date());
     }

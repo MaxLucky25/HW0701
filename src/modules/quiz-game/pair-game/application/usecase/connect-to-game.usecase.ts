@@ -6,7 +6,7 @@ import { PairGameViewDto } from '../../api/view-dto/pair-game.view-dto';
 import { QuestionsRepository } from '../../../questions/infrastructure/questions.repository';
 import { DomainException } from '../../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../../core/exceptions/domain-exception-codes';
-import { PairGameQueryRepository } from '../../infrastructure/query/pair-game.query-repository';
+import { GAME_CONSTANTS } from '../../domain/dto/game.constants';
 
 export class ConnectToGameCommand {
   constructor(public readonly userId: string) {}
@@ -18,7 +18,6 @@ export class ConnectToGameUseCase
 {
   constructor(
     private pairGameRepository: PairGameRepository,
-    private pairGameQueryRepository: PairGameQueryRepository,
     private questionsRepository: QuestionsRepository,
     @InjectDataSource()
     private readonly dataSource: DataSource,
@@ -50,12 +49,12 @@ export class ConnectToGameUseCase
         );
 
       if (waitingGame) {
-        // Находим 5 случайных опубликованных вопросов
+        // Находим случайные опубликованные вопросы
         const questions = await this.questionsRepository.findRandomQuestions({
-          count: 5,
+          count: GAME_CONSTANTS.QUESTIONS_PER_GAME,
         });
 
-        if (questions.length < 5) {
+        if (questions.length < GAME_CONSTANTS.QUESTIONS_PER_GAME) {
           throw new DomainException({
             code: DomainExceptionCode.BadRequest,
             message: 'Not enough published questions available',
@@ -77,9 +76,10 @@ export class ConnectToGameUseCase
     });
 
     // Загружаем полные данные игры для ответа (после коммита транзакции)
-    const fullGame = await this.pairGameQueryRepository.getCurrentGameByUserId({
-      userId: command.userId,
-    });
+    const fullGame =
+      await this.pairGameRepository.getCurrentGameByUserIdWithRelations({
+        userId: command.userId,
+      });
 
     if (!fullGame) {
       throw new DomainException({

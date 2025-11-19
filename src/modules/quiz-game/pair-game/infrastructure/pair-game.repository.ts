@@ -39,6 +39,30 @@ export class PairGameRepository {
   }
 
   /**
+   * Получить текущую игру пользователя со всеми связями для чтения
+   * Используется для получения полных данных игры после изменения состояния
+   */
+  async getCurrentGameByUserIdWithRelations(
+    dto: FindActiveGameByUserIdDto,
+  ): Promise<PairGame | null> {
+    return await this.repository
+      .createQueryBuilder('game')
+      .innerJoin('game.players', 'player')
+      .leftJoinAndSelect('game.players', 'players')
+      .leftJoinAndSelect('players.user', 'user')
+      .leftJoinAndSelect('game.questions', 'questions')
+      .leftJoinAndSelect('questions.question', 'question')
+      .leftJoinAndSelect('players.answers', 'answers')
+      .leftJoinAndSelect('answers.gameQuestion', 'answerGameQuestion')
+      .where('player.userId = :userId', { userId: dto.userId })
+      .andWhere('game.status IN (:...statuses)', {
+        statuses: [GameStatus.PENDING_SECOND_PLAYER, GameStatus.ACTIVE],
+      })
+      .orderBy('questions.order', 'ASC')
+      .getOne();
+  }
+
+  /**
    * Найти игру в ожидании второго игрока (для матчмейкинга)
    * Используется с FOR UPDATE SKIP LOCKED для безопасного матчмейкинга
    * Должен вызываться внутри транзакции
@@ -176,7 +200,7 @@ export class PairGameRepository {
         }
       }
 
-      // Создаем 5 вопросов для игры
+      // Создаем вопросы для игры
       const gameQuestions = questions.map((question, index) =>
         GameQuestion.create({
           gameId: gameId,

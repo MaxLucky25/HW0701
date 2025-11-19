@@ -52,7 +52,7 @@ export class PairGameQueryRepository {
     }
 
     // Теперь проверяем, участвует ли пользователь в игре
-    const game = await this.repository
+    return await this.repository
       .createQueryBuilder('game')
       .innerJoin('game.players', 'player')
       .leftJoinAndSelect('game.players', 'players')
@@ -68,6 +68,5 @@ export class PairGameQueryRepository {
 
     // Если игра существует, но пользователь не участвует, возвращаем null
     // Use case обработает это как Forbidden
-    return game;
   }
 }

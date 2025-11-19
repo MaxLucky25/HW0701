@@ -11,7 +11,6 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Logger,
 } from '@nestjs/common';
 import { QueryBus, CommandBus } from '@nestjs/cqrs';
 import { BasicAuthGuard } from '../../../auth-manage/guards/basic/basic-auth.guard';
@@ -30,8 +29,6 @@ import { PublishQuestionCommand } from '../application/usecase/publish-question.
 @UseGuards(BasicAuthGuard)
 @Controller('sa/quiz/questions')
 export class QuestionsController {
-  private readonly logger = new Logger(QuestionsController.name);
-
   constructor(
     private queryBus: QueryBus,
     private commandBus: CommandBus,
@@ -42,11 +39,6 @@ export class QuestionsController {
     @Req() req: any,
     @Query() query: GetQuestionsQueryParams,
   ): Promise<PaginatedViewDto<QuestionViewDto[]>> {
-    // Логируем сырые query параметры из запроса
-    this.logger.debug('Raw query params:', JSON.stringify(req.query));
-    // Логируем валидированный объект query
-    this.logger.debug('Validated query object:', JSON.stringify(query));
-
     return this.queryBus.execute(new GetAllQuestionsQuery(query));
   }
 

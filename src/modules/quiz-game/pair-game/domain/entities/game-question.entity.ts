@@ -11,6 +11,7 @@ import { PairGame } from './pair-game.entity';
 import { Question } from '../../../questions/domain/entities/question.entity';
 import { GameAnswer } from './game-answer.entity';
 import { CreateGameQuestionDomainDto } from '../dto/create-game-question.domain.dto';
+import { GAME_CONSTANTS } from '../dto/game.constants';
 
 @Entity('game_questions')
 @Index(['gameId', 'order'], { unique: true }) // порядок уникален в рамках игры
@@ -57,6 +58,6 @@ export class GameQuestion {
    * Проверить, является ли это последним вопросом
    */
   isLast(): boolean {
-    return this.order === 4;
+    return this.order === GAME_CONSTANTS.QUESTIONS_PER_GAME - 1;
   }
 }
