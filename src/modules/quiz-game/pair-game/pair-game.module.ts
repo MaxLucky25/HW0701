@@ -12,6 +12,7 @@ import { GameQuestionRepository } from './infrastructure/game-question.repositor
 import { GameAnswerRepository } from './infrastructure/game-answer.repository';
 import { PairGameQueryRepository } from './infrastructure/query/pair-game.query-repository';
 import { MatchmakingService } from './domain/services/matchmaking.service';
+import { AnswerSubmissionService } from './domain/services/answer-submission.service';
 import { PairGameController } from './api/pair-game.controller';
 import { GetCurrentGameUseCase } from './application/query-usecase/get-current-game.usecase';
 import { GetGameByIdUseCase } from './application/query-usecase/get-game-by-id.usecase';
@@ -45,6 +46,7 @@ const CommandHandlers = [ConnectToGameUseCase, SubmitAnswerUseCase];
     GameAnswerRepository,
     PairGameQueryRepository,
     MatchmakingService,
+    AnswerSubmissionService,
   ],
   exports: [
     PairGameRepository,

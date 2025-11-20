@@ -1,11 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { PairGame } from '../domain/entities/pair-game.entity';
 import { GameStatus } from '../domain/dto/game-status.enum';
 import { FindActiveGameByUserIdDto } from './dto/pair-game-repo.dto';
-import { DomainException } from '../../../../core/exceptions/domain-exceptions';
-import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
 
 @Injectable()
 export class PairGameRepository {
@@ -13,19 +11,6 @@ export class PairGameRepository {
     @InjectRepository(PairGame)
     private readonly repository: Repository<PairGame>,
   ) {}
-
-  async findActiveGameByUserId(
-    dto: FindActiveGameByUserIdDto,
-  ): Promise<PairGame | null> {
-    return await this.repository
-      .createQueryBuilder('game')
-      .innerJoin('game.players', 'player')
-      .where('player.userId = :userId', { userId: dto.userId })
-      .andWhere('game.status IN (:...statuses)', {
-        statuses: [GameStatus.PENDING_SECOND_PLAYER, GameStatus.ACTIVE],
-      })
-      .getOne();
-  }
 
   /**
    * Получить текущую игру пользователя со всеми связями для чтения
@@ -51,30 +36,21 @@ export class PairGameRepository {
       .getOne();
   }
 
-  async findById(gameId: string): Promise<PairGame | null> {
-    return await this.repository.findOne({
-      where: { id: gameId },
-    });
+  async findActiveGameByUserId(
+    dto: FindActiveGameByUserIdDto,
+    manager: EntityManager,
+  ): Promise<PairGame | null> {
+    return await manager
+      .createQueryBuilder(PairGame, 'game')
+      .innerJoin('game.players', 'player')
+      .where('player.userId = :userId', { userId: dto.userId })
+      .andWhere('game.status = :status', { status: GameStatus.ACTIVE })
+      .setLock('pessimistic_write')
+      .getOne();
   }
 
-  async create(game: PairGame): Promise<PairGame> {
-    return await this.repository.save(game);
-  }
-
-  async save(game: PairGame): Promise<PairGame> {
-    return await this.repository.save(game);
-  }
-
-  async finishGame(game: PairGame): Promise<PairGame> {
-    if (!game.isActive()) {
-      throw new DomainException({
-        code: DomainExceptionCode.BadRequest,
-        message: 'Game can only be finished from Active status',
-        field: 'status',
-      });
-    }
-
+  async finishGame(game: PairGame, manager: EntityManager): Promise<void> {
     game.finishGame();
-    return await this.repository.save(game);
+    await manager.save(PairGame, game);
   }
 }

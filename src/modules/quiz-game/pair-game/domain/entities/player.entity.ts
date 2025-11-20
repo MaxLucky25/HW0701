@@ -12,6 +12,7 @@ import { User } from '../../../../auth-manage/user-accounts/domain/entities/user
 import { GameAnswer } from './game-answer.entity';
 import { PlayerRole } from '../dto/player-role.enum';
 import { CreatePlayerDomainDto } from '../dto/create-player.domain.dto';
+import { GAME_CONSTANTS } from '../dto/game.constants';
 
 @Entity('players')
 @Index(['gameId', 'userId'], { unique: true }) // один пользователь не может участвовать дважды в одной игре
@@ -77,17 +78,17 @@ export class Player {
   }
 
   /**
-   * Установить время завершения (когда ответил на последний вопрос)
+   * Завершить игру (устанавливает текущее время)
    */
-  setFinishedAt(date: Date): void {
-    this.finishedAt = date;
+  finish(): void {
+    this.finishedAt = new Date();
   }
 
   /**
-   * Установить бонус
+   * Начислить бонус за быстрейшее завершение игры
    */
-  setBonus(bonus: number): void {
-    this.bonus = bonus;
+  awardBonus(): void {
+    this.bonus = GAME_CONSTANTS.BONUS_FOR_FASTEST_PLAYER;
   }
 
   /**

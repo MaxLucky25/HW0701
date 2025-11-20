@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { GameQuestion } from '../domain/entities/game-question.entity';
+import { DomainException } from '../../../../core/exceptions/domain-exceptions';
+import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
+import { FindNextQuestionByGameAndOrderDto } from './dto/game-question-repo.dto';
 
 @Injectable()
 export class GameQuestionRepository {
@@ -10,13 +13,25 @@ export class GameQuestionRepository {
     private readonly repository: Repository<GameQuestion>,
   ) {}
 
-  async findByGameId(gameId: string): Promise<GameQuestion[]> {
-    return await this.repository.find({
-      where: { gameId },
-      relations: ['question', 'answers'],
-      order: {
-        order: 'ASC',
-      },
-    });
+  async findNextQuestionOrNotFoundFail(
+    dto: FindNextQuestionByGameAndOrderDto,
+    manager: EntityManager,
+  ): Promise<GameQuestion> {
+    const nextQuestion = await manager
+      .createQueryBuilder(GameQuestion, 'gq')
+      .leftJoinAndSelect('gq.question', 'question')
+      .where('gq.gameId = :gameId', { gameId: dto.gameId })
+      .andWhere('gq.order = :order', { order: dto.order })
+      .getOne();
+
+    if (!nextQuestion) {
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'Next question not found',
+        field: 'GameQuestion',
+      });
+    }
+
+    return nextQuestion;
   }
 }

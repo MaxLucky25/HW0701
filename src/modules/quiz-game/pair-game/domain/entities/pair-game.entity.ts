@@ -109,11 +109,4 @@ export class PairGame {
   isActive(): boolean {
     return this.status === GameStatus.ACTIVE;
   }
-
-  /**
-   * Проверить, завершена ли игра
-   */
-  isFinished(): boolean {
-    return this.status === GameStatus.FINISHED;
-  }
 }

@@ -1,7 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { Player } from '../domain/entities/player.entity';
+import { DomainException } from '../../../../core/exceptions/domain-exceptions';
+import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
 import {
   FindPlayerByGameAndUserDto,
   FindPlayersByGameIdDto,
@@ -14,34 +16,55 @@ export class PlayerRepository {
     private readonly repository: Repository<Player>,
   ) {}
 
-  async findByGameAndUser(
+  async findPlayerOrNotFoundFail(
     dto: FindPlayerByGameAndUserDto,
-    loadAnswers: boolean = false,
-  ): Promise<Player | null> {
-    return await this.repository.findOne({
-      where: {
-        gameId: dto.gameId,
-        userId: dto.userId,
-      },
-      relations: loadAnswers ? ['answers'] : [],
-    });
+    manager: EntityManager,
+  ): Promise<Player> {
+    const player = await manager
+      .createQueryBuilder(Player, 'player')
+      .where('player.gameId = :gameId', { gameId: dto.gameId })
+      .andWhere('player.userId = :userId', { userId: dto.userId })
+      .setLock('pessimistic_write')
+      .getOne();
+
+    if (!player) {
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'Player not found',
+        field: 'Player',
+      });
+    }
+
+    return player;
   }
 
-  async findByGameId(dto: FindPlayersByGameIdDto): Promise<Player[]> {
-    return await this.repository.find({
+  async updatePlayerScore(
+    player: Player,
+    isCorrect: boolean,
+    isLastQuestion: boolean,
+    manager: EntityManager,
+  ): Promise<void> {
+    if (isCorrect) {
+      player.incrementScore();
+    }
+
+    if (isLastQuestion) {
+      player.finish();
+    }
+
+    await manager.save(Player, player);
+  }
+
+  async findAllByGameId(
+    dto: FindPlayersByGameIdDto,
+    manager: EntityManager,
+  ): Promise<Player[]> {
+    return await manager.find(Player, {
       where: { gameId: dto.gameId },
-      relations: ['user', 'answers'],
-      order: {
-        role: 'ASC',
-      },
     });
   }
 
-  async save(player: Player): Promise<Player> {
-    return await this.repository.save(player);
-  }
-
-  async saveMany(players: Player[]): Promise<Player[]> {
-    return await this.repository.save(players);
+  async savePlayers(players: Player[], manager: EntityManager): Promise<void> {
+    await manager.save(Player, players);
   }
 }
