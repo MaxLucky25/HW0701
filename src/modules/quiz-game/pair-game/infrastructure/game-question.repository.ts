@@ -2,9 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { GameQuestion } from '../domain/entities/game-question.entity';
-import { DomainException } from '../../../../core/exceptions/domain-exceptions';
-import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
-import { FindNextQuestionByGameAndOrderDto } from './dto/game-question-repo.dto';
 
 @Injectable()
 export class GameQuestionRepository {
@@ -12,33 +9,6 @@ export class GameQuestionRepository {
     @InjectRepository(GameQuestion)
     private readonly repository: Repository<GameQuestion>,
   ) {}
-
-  // ==================== ANSWER SUBMISSION METHODS ====================
-
-  /**
-   * Найти следующий вопрос игры по порядку или выбросить исключение
-   *
-   * @usedIn AnswerSubmissionService.submitAnswer - поиск следующего вопроса для ответа
-   */
-  async findNextQuestionOrNotFoundFail(
-    dto: FindNextQuestionByGameAndOrderDto,
-    manager: EntityManager,
-  ): Promise<GameQuestion> {
-    const nextQuestion = await manager.findOne(GameQuestion, {
-      where: { gameId: dto.gameId, order: dto.order },
-      relations: ['question'],
-    });
-
-    if (!nextQuestion) {
-      throw new DomainException({
-        code: DomainExceptionCode.NotFound,
-        message: 'Next question not found',
-        field: 'GameQuestion',
-      });
-    }
-
-    return nextQuestion;
-  }
 
   // ==================== MATCHMAKING METHODS ====================
 

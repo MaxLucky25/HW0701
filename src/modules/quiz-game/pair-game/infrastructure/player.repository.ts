@@ -5,10 +5,7 @@ import { Player } from '../domain/entities/player.entity';
 import { PlayerRole } from '../domain/dto/player-role.enum';
 import { DomainException } from '../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
-import {
-  FindPlayerByUserIdDto,
-  FindPlayersByGameIdDto,
-} from './dto/player-repo.dto';
+import { FindPlayerByUserIdDto } from './dto/player-repo.dto';
 
 @Injectable()
 export class PlayerRepository {
@@ -73,20 +70,6 @@ export class PlayerRepository {
 
     // Возвращаем обновленный объект для синхронизации в памяти
     return player;
-  }
-
-  /**
-   * Найти всех игроков игры
-   *
-   * @usedIn AnswerSubmissionService.checkAndFinishGame - проверка завершения игры всеми игроками
-   */
-  async findAllByGameId(
-    dto: FindPlayersByGameIdDto,
-    manager: EntityManager,
-  ): Promise<Player[]> {
-    return await manager.find(Player, {
-      where: { gameId: dto.gameId },
-    });
   }
 
   /**

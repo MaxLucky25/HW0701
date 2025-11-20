@@ -42,24 +42,6 @@ export class PairGameRepository {
       .getOne();
   }
 
-  /**
-   * Найти активную игру пользователя с блокировкой для записи
-   *
-   * @usedIn AnswerSubmissionService - поиск активной игры перед отправкой ответа
-   */
-  async findActiveGameByUserId(
-    dto: FindActiveGameByUserIdDto,
-    manager: EntityManager,
-  ): Promise<PairGame | null> {
-    return await manager
-      .createQueryBuilder(PairGame, 'game')
-      .innerJoin('game.players', 'player')
-      .where('player.userId = :userId', { userId: dto.userId })
-      .andWhere('game.status = :status', { status: GameStatus.ACTIVE })
-      .setLock('pessimistic_write')
-      .getOne();
-  }
-
   // ==================== COMMAND METHODS (для изменения состояния) ====================
 
   /**
