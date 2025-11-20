@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, EntityManager } from 'typeorm';
 import { Player } from '../domain/entities/player.entity';
 import { PlayerRole } from '../domain/dto/player-role.enum';
+import { GameStatus } from '../domain/dto/game-status.enum';
 import { DomainException } from '../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
 import { FindPlayerByUserIdDto } from './dto/player-repo.dto';
@@ -18,8 +19,8 @@ export class PlayerRepository {
 
   /**
    * Найти игрока по userId с игрой, вопросами, игроками и ответами в одном запросе
-   * Использует findOne с relations - один запрос, все данные загружены
-   * Используем update вместо save для обновления игрока, чтобы не трогать relations
+   * Фильтрует только активные игры (ACTIVE или PENDING_SECOND_PLAYER)
+   * Использует Query Builder для фильтрации по статусу игры
    *
    * @usedIn AnswerSubmissionService - объединение всех запросов в один
    */
@@ -27,16 +28,19 @@ export class PlayerRepository {
     dto: FindPlayerByUserIdDto,
     manager: EntityManager,
   ): Promise<Player | null> {
-    return await manager.findOne(Player, {
-      where: { userId: dto.userId },
-      relations: [
-        'game',
-        'game.questions',
-        'game.questions.question',
-        'game.players',
-        'answers',
-      ],
-    });
+    return await manager
+      .createQueryBuilder(Player, 'player')
+      .leftJoinAndSelect('player.game', 'game')
+      .leftJoinAndSelect('game.questions', 'questions')
+      .leftJoinAndSelect('questions.question', 'question')
+      .leftJoinAndSelect('game.players', 'players')
+      .leftJoinAndSelect('player.answers', 'answers')
+      .where('player.userId = :userId', { userId: dto.userId })
+      .andWhere('game.status IN (:...statuses)', {
+        statuses: [GameStatus.PENDING_SECOND_PLAYER, GameStatus.ACTIVE],
+      })
+      .orderBy('questions.order', 'ASC')
+      .getOne();
   }
 
   /**
