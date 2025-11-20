@@ -6,7 +6,7 @@ import { PlayerRole } from '../domain/dto/player-role.enum';
 import { DomainException } from '../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../core/exceptions/domain-exception-codes';
 import {
-  FindPlayerByGameAndUserDto,
+  FindPlayerByUserIdDto,
   FindPlayersByGameIdDto,
 } from './dto/player-repo.dto';
 
@@ -20,35 +20,31 @@ export class PlayerRepository {
   // ==================== ANSWER SUBMISSION METHODS ====================
 
   /**
-   * Найти игрока по игре и пользователю или выбросить исключение
-   * Использует блокировку для предотвращения race conditions
+   * Найти игрока по userId с игрой, вопросами, игроками и ответами в одном запросе
+   * Использует findOne с relations - один запрос, все данные загружены
+   * Используем update вместо save для обновления игрока, чтобы не трогать relations
    *
-   * @usedIn AnswerSubmissionService.submitAnswer - поиск игрока перед отправкой ответа
+   * @usedIn AnswerSubmissionService - объединение всех запросов в один
    */
-  async findPlayerOrNotFoundFail(
-    dto: FindPlayerByGameAndUserDto,
+  async findPlayerWithGameAndAnswers(
+    dto: FindPlayerByUserIdDto,
     manager: EntityManager,
-  ): Promise<Player> {
-    const player = await manager
-      .createQueryBuilder(Player, 'player')
-      .where('player.gameId = :gameId', { gameId: dto.gameId })
-      .andWhere('player.userId = :userId', { userId: dto.userId })
-      .setLock('pessimistic_write')
-      .getOne();
-
-    if (!player) {
-      throw new DomainException({
-        code: DomainExceptionCode.NotFound,
-        message: 'Player not found',
-        field: 'Player',
-      });
-    }
-
-    return player;
+  ): Promise<Player | null> {
+    return await manager.findOne(Player, {
+      where: { userId: dto.userId },
+      relations: [
+        'game',
+        'game.questions',
+        'game.questions.question',
+        'game.players',
+        'answers',
+      ],
+    });
   }
 
   /**
    * Обновить счет игрока (увеличивает при правильном ответе, завершает при последнем вопросе)
+   * Использует update вместо save, чтобы не трогать relations
    *
    * @usedIn AnswerSubmissionService.submitAnswer - обновление счета после отправки ответа
    */
@@ -57,16 +53,26 @@ export class PlayerRepository {
     isCorrect: boolean,
     isLastQuestion: boolean,
     manager: EntityManager,
-  ): Promise<void> {
+  ): Promise<Player> {
+    const updateData: Partial<Player> = {};
+
     if (isCorrect) {
       player.incrementScore();
+      updateData.score = player.score;
     }
 
     if (isLastQuestion) {
       player.finish();
+      updateData.finishedAt = player.finishedAt;
     }
 
-    await manager.save(Player, player);
+    // Используем update вместо save, чтобы не трогать relations
+    if (Object.keys(updateData).length > 0) {
+      await manager.update(Player, { id: player.id }, updateData);
+    }
+
+    // Возвращаем обновленный объект для синхронизации в памяти
+    return player;
   }
 
   /**

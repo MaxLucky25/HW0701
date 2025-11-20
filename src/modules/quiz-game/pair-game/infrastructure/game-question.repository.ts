@@ -24,12 +24,10 @@ export class GameQuestionRepository {
     dto: FindNextQuestionByGameAndOrderDto,
     manager: EntityManager,
   ): Promise<GameQuestion> {
-    const nextQuestion = await manager
-      .createQueryBuilder(GameQuestion, 'gq')
-      .leftJoinAndSelect('gq.question', 'question')
-      .where('gq.gameId = :gameId', { gameId: dto.gameId })
-      .andWhere('gq.order = :order', { order: dto.order })
-      .getOne();
+    const nextQuestion = await manager.findOne(GameQuestion, {
+      where: { gameId: dto.gameId, order: dto.order },
+      relations: ['question'],
+    });
 
     if (!nextQuestion) {
       throw new DomainException({

@@ -3,6 +3,10 @@ export class FindPlayerByGameAndUserDto {
   userId: string;
 }
 
+export class FindPlayerByUserIdDto {
+  userId: string;
+}
+
 export class FindPlayersByGameIdDto {
   gameId: string;
 }

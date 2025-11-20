@@ -7,8 +7,6 @@ import { GAME_CONSTANTS } from '../dto/game.constants';
 import { DomainException } from '../../../../../core/exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../../../../../core/exceptions/domain-exception-codes';
 import { PlayerRepository } from '../../infrastructure/player.repository';
-import { GameAnswerRepository } from '../../infrastructure/game-answer.repository';
-import { GameQuestionRepository } from '../../infrastructure/game-question.repository';
 import { PairGameRepository } from '../../infrastructure/pair-game.repository';
 
 @Injectable()
@@ -18,19 +16,17 @@ export class AnswerSubmissionService {
     private readonly dataSource: DataSource,
     private readonly pairGameRepository: PairGameRepository,
     private readonly playerRepository: PlayerRepository,
-    private readonly gameAnswerRepository: GameAnswerRepository,
-    private readonly gameQuestionRepository: GameQuestionRepository,
   ) {}
 
   async submitAnswer(userId: string, answer: string): Promise<GameAnswer> {
     return await this.dataSource.transaction(async (manager) => {
-      // 1. Найти активную игру
-      const game = await this.pairGameRepository.findActiveGameByUserId(
+      // 1-3. Найти игрока с игрой и ответами в одном запросе (findOne с relations)
+      const player = await this.playerRepository.findPlayerWithGameAndAnswers(
         { userId },
         manager,
       );
 
-      if (!game) {
+      if (!player || !player.game) {
         throw new DomainException({
           code: DomainExceptionCode.Forbidden,
           message:
@@ -39,17 +35,20 @@ export class AnswerSubmissionService {
         });
       }
 
-      // 2. Найти игрока
-      const player = await this.playerRepository.findPlayerOrNotFoundFail(
-        { gameId: game.id, userId },
-        manager,
-      );
+      const game = player.game;
 
-      // 3. Подсчитать ответы игрока
-      const answersCount = await this.gameAnswerRepository.countAnswers(
-        { playerId: player.id },
-        manager,
-      );
+      // Проверяем статус игры
+      if (!game.isActive()) {
+        throw new DomainException({
+          code: DomainExceptionCode.Forbidden,
+          message:
+            'Current user is not inside active pair or user is in active pair but has already answered to all questions',
+          field: 'Game',
+        });
+      }
+
+      // Считаем ответы из загруженных данных (не нужен отдельный запрос)
+      const answersCount = player.answers?.length || 0;
 
       // 4. Проверить лимит ответов
       if (answersCount >= GAME_CONSTANTS.QUESTIONS_PER_GAME) {
@@ -61,17 +60,28 @@ export class AnswerSubmissionService {
         });
       }
 
-      // 5. Найти следующий вопрос
-      const nextQuestion =
-        await this.gameQuestionRepository.findNextQuestionOrNotFoundFail(
-          { gameId: game.id, order: answersCount },
-          manager,
-        );
+      // 5. Найти следующий вопрос из уже загруженных данных
+      if (!game.questions || game.questions.length === 0) {
+        throw new DomainException({
+          code: DomainExceptionCode.NotFound,
+          message: 'Next question not found',
+          field: 'GameQuestion',
+        });
+      }
 
-      // 6. Проверить существующий ответ
-      const existingAnswer = await this.gameAnswerRepository.findAnswer(
-        { gameQuestionId: nextQuestion.id, playerId: player.id },
-        manager,
+      const nextQuestion = game.questions.find((q) => q.order === answersCount);
+
+      if (!nextQuestion) {
+        throw new DomainException({
+          code: DomainExceptionCode.NotFound,
+          message: 'Next question not found',
+          field: 'GameQuestion',
+        });
+      }
+
+      // 6. Проверить существующий ответ из уже загруженных данных
+      const existingAnswer = player.answers?.find(
+        (answer) => answer.gameQuestionId === nextQuestion.id,
       );
 
       if (existingAnswer) {
@@ -95,13 +105,20 @@ export class AnswerSubmissionService {
 
       const savedAnswer = await manager.save(GameAnswer, answerEntity);
 
-      // 9. Обновить счет игрока
-      await this.playerRepository.updatePlayerScore(
+      // 9. Обновить счет игрока и получить обновленный объект
+      const updatedPlayer = await this.playerRepository.updatePlayerScore(
         player,
         isCorrect,
         nextQuestion.isLast(),
         manager,
       );
+
+      // Синхронизируем объект игрока в game.players с обновленным player
+      const playerInGame = game.players.find((p) => p.id === updatedPlayer.id);
+      if (playerInGame) {
+        playerInGame.score = updatedPlayer.score;
+        playerInGame.finishedAt = updatedPlayer.finishedAt;
+      }
 
       // 10. Проверить и завершить игру если нужно
       await this.checkAndFinishGame(game, manager);
@@ -116,18 +133,17 @@ export class AnswerSubmissionService {
     game: PairGame,
     manager: EntityManager,
   ): Promise<void> {
-    // Загружаем всех игроков игры для проверки завершения
-    const allPlayers = await this.playerRepository.findAllByGameId(
-      { gameId: game.id },
-      manager,
-    );
+    // Используем уже загруженных игроков игры для проверки завершения
+    if (!game.players || game.players.length === 0) {
+      return;
+    }
 
-    const allPlayersFinished = allPlayers.every((p) => p.hasFinished());
+    const allPlayersFinished = game.players.every((p) => p.hasFinished());
 
     if (allPlayersFinished) {
       // Вычисляем бонусы
-      const firstPlayer = allPlayers.find((p) => p.isFirstPlayer());
-      const secondPlayer = allPlayers.find((p) => p.isSecondPlayer());
+      const firstPlayer = game.players.find((p) => p.isFirstPlayer());
+      const secondPlayer = game.players.find((p) => p.isSecondPlayer());
 
       if (firstPlayer && secondPlayer) {
         // Бонус получает тот, кто закончил быстрее И имеет хотя бы один правильный ответ
