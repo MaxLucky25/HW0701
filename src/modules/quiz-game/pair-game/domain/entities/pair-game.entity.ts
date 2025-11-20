@@ -102,11 +102,4 @@ export class PairGame {
   isPendingSecondPlayer(): boolean {
     return this.status === GameStatus.PENDING_SECOND_PLAYER;
   }
-
-  /**
-   * Проверить, активна ли игра
-   */
-  isActive(): boolean {
-    return this.status === GameStatus.ACTIVE;
-  }
 }

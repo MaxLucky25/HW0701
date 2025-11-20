@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, EntityManager } from 'typeorm';
 import { Question } from '../domain/entities/question.entity';
 import { CreateQuestionDomainDto } from '../domain/dto/create-question.domain.dto';
 import { UpdateQuestionDomainDto } from '../domain/dto/update-question.domain.dto';
@@ -38,6 +38,11 @@ export class QuestionsRepository {
     return question;
   }
 
+  /**
+   * Получить случайные опубликованные вопросы (без EntityManager)
+   *
+   * @usedIn - используется в других модулях для получения вопросов вне транзакций
+   */
   async findRandomQuestions(dto: FindRandomQuestionsDto): Promise<Question[]> {
     return await this.repository
       .createQueryBuilder('question')
@@ -72,5 +77,35 @@ export class QuestionsRepository {
 
   async deleteQuestion(entity: Question): Promise<void> {
     await this.repository.remove(entity);
+  }
+
+  // ==================== MATCHMAKING METHODS ====================
+
+  /**
+   * Получает случайные опубликованные вопросы для игры (с EntityManager)
+   * Выбрасывает исключение, если недостаточно вопросов
+   *
+   * @usedIn MatchmakingService.connectUserToGame - получение вопросов для старта игры
+   */
+  async getRandomPublishedQuestions(
+    count: number,
+    manager: EntityManager,
+  ): Promise<Question[]> {
+    const questions = await manager
+      .createQueryBuilder(Question, 'question')
+      .where('question.published = :published', { published: true })
+      .orderBy('RANDOM()')
+      .limit(count)
+      .getMany();
+
+    if (questions.length < count) {
+      throw new DomainException({
+        code: DomainExceptionCode.BadRequest,
+        message: 'Not enough published questions available',
+        field: 'Questions',
+      });
+    }
+
+    return questions;
   }
 }
