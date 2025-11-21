@@ -1,4 +1,4 @@
-import { ArgumentMetadata, Injectable, PipeTransform } from '@nestjs/common';
+import { Injectable, PipeTransform } from '@nestjs/common';
 import { DomainException } from '../exceptions/domain-exceptions';
 import { DomainExceptionCode } from '../exceptions/domain-exception-codes';
 
@@ -7,27 +7,6 @@ function isValidUUID(uuid: string): boolean {
   const uuidRegex =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return uuidRegex.test(uuid);
-}
-
-@Injectable()
-export class UuidValidationTransformationPipe implements PipeTransform {
-  transform(value: string, metadata: ArgumentMetadata): any {
-    // Проверяем, что тип данных в декораторе — String (для UUID)
-    if (metadata.metatype !== String) {
-      return value;
-    }
-
-    if (!isValidUUID(value)) {
-      throw new DomainException({
-        code: DomainExceptionCode.BadRequest,
-        message: `Invalid UUID: ${value}`,
-        field: 'UUID',
-      });
-    }
-    return value; // Возвращаем строку как есть
-
-    // Если тип не String, возвращаем значение без изменений
-  }
 }
 
 /**

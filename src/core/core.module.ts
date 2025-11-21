@@ -5,7 +5,6 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AllHttpExceptionsFilter } from './exceptions/filters/all-exception.filter';
 import { DomainHttpExceptionsFilter } from './exceptions/filters/domain-exceptions.filter';
 import { ThrottlerGuard } from '@nestjs/throttler';
-import { UuidValidationTransformationPipe } from './pipes/uuid-validator-transformation-pipe-service';
 import { UuidValidationPipe } from './pipes/uuid-validator-transformation-pipe-service';
 
 @Global()
@@ -42,12 +41,10 @@ import { UuidValidationPipe } from './pipes/uuid-validator-transformation-pipe-s
       useClass: ThrottlerGuard,
     },
     // Pipes для валидации UUID
-    UuidValidationTransformationPipe,
     UuidValidationPipe,
   ],
   exports: [
     // Экспортируем pipes для использования в других модулях
-    UuidValidationTransformationPipe,
     UuidValidationPipe,
   ],
 })
