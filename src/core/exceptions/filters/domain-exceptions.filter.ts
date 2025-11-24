@@ -1,16 +1,36 @@
-import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, Logger } from '@nestjs/common';
 import { DomainException } from '../domain-exceptions';
-import { Response } from 'express';
+import { Response, Request } from 'express';
 import { mapDomainCodeToHttpStatus } from './map-domain-code-to-http-status';
+import { DomainExceptionCode } from '../domain-exception-codes';
 
 @Catch(DomainException)
 export class DomainHttpExceptionsFilter implements ExceptionFilter {
+  private readonly logger = new Logger(DomainHttpExceptionsFilter.name);
+
   catch(exception: DomainException, host: ArgumentsHost): void {
+    const timestamp = new Date().toISOString();
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
+    const request = ctx.getRequest<Request>();
 
     const status = mapDomainCodeToHttpStatus(exception.code);
     const responseBody = this.buildResponseBody(exception);
+
+    // Логируем информацию об исключении
+    const method = request.method || 'UNKNOWN';
+    const url = request.url || 'UNKNOWN';
+    const domainCodeName =
+      DomainExceptionCode[exception.code] || `CODE_${exception.code}`;
+
+    this.logger.error(
+      `[${timestamp}] [DomainHttpExceptionsFilter.catch] EXCEPTION HANDLED - ` +
+        `Method: ${method}, URL: ${url}, ` +
+        `DomainExceptionCode: ${domainCodeName} (${exception.code}), ` +
+        `HTTP Status: ${status}, ` +
+        `Message: "${exception.message}", ` +
+        `Field: "${exception.field}"`,
+    );
 
     response.status(status).json(responseBody);
   }

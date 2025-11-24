@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { PairGame } from '../../domain/entities/pair-game.entity';
@@ -9,6 +9,8 @@ import { GameStatus } from '../../domain/dto/game-status.enum';
 
 @Injectable()
 export class PairGameQueryRepository {
+  private readonly logger = new Logger(PairGameQueryRepository.name);
+
   constructor(
     @InjectRepository(PairGame)
     private readonly repository: Repository<PairGame>,
@@ -17,7 +19,12 @@ export class PairGameQueryRepository {
   async getCurrentGameByUserId(
     dto: FindActiveGameByUserIdDto,
   ): Promise<PairGame | null> {
-    return await this.repository
+    const timestamp = new Date().toISOString();
+    this.logger.log(
+      `[${timestamp}] [PairGameQueryRepository.getCurrentGameByUserId] START - Searching active game for userId: "${dto.userId}". Statuses: PENDING_SECOND_PLAYER, ACTIVE`,
+    );
+
+    const game = await this.repository
       .createQueryBuilder('game')
       .innerJoin('game.players', 'player')
       .leftJoinAndSelect('game.players', 'players')
@@ -32,12 +39,29 @@ export class PairGameQueryRepository {
       })
       .orderBy('questions.order', 'ASC')
       .getOne();
+
+    if (game) {
+      this.logger.log(
+        `[${timestamp}] [PairGameQueryRepository.getCurrentGameByUserId] Active game found - gameId: "${game.id}", gameStatus: "${game.status}", userId: "${dto.userId}"`,
+      );
+    } else {
+      this.logger.log(
+        `[${timestamp}] [PairGameQueryRepository.getCurrentGameByUserId] No active game found - userId: "${dto.userId}". Returning null.`,
+      );
+    }
+
+    return game;
   }
 
   async getGameByIdForUser(
     gameId: string,
     userId: string,
   ): Promise<PairGame | null> {
+    const timestamp = new Date().toISOString();
+    this.logger.log(
+      `[${timestamp}] [PairGameQueryRepository.getGameByIdForUser] START - Searching game with gameId: "${gameId}", userId: "${userId}"`,
+    );
+
     // Проверяем, участвует ли пользователь в игре
     const game = await this.repository
       .createQueryBuilder('game')
@@ -53,24 +77,39 @@ export class PairGameQueryRepository {
       .orderBy('questions.order', 'ASC')
       .getOne();
 
+    if (game) {
+      this.logger.log(
+        `[${timestamp}] [PairGameQueryRepository.getGameByIdForUser] Game found for user - gameId: "${gameId}", userId: "${userId}", gameStatus: "${game.status}"`,
+      );
+      return game;
+    }
+
     // Если игра не найдена (null), проверяем существование игры
     // для правильной обработки ошибок (404 vs 403)
-    if (!game) {
-      const gameExists = await this.repository.findOne({
-        where: { id: gameId },
-      });
+    this.logger.log(
+      `[${timestamp}] [PairGameQueryRepository.getGameByIdForUser] Game not found for user. Checking if game exists in DB - gameId: "${gameId}"`,
+    );
 
-      if (!gameExists) {
-        throw new DomainException({
-          code: DomainExceptionCode.NotFound,
-          message: 'Game not found!',
-          field: 'Game',
-        });
-      }
+    const gameExists = await this.repository.findOne({
+      where: { id: gameId },
+    });
+
+    if (!gameExists) {
+      this.logger.warn(
+        `[${timestamp}] [PairGameQueryRepository.getGameByIdForUser] ERROR - Game does not exist in database. gameId: "${gameId}". Throwing NotFound exception (404).`,
+      );
+      throw new DomainException({
+        code: DomainExceptionCode.NotFound,
+        message: 'Game not found!',
+        field: 'Game',
+      });
     }
 
     // Если игра существует, но пользователь не участвует, возвращаем null
     // Use case обработает это как Forbidden
-    return game;
+    this.logger.log(
+      `[${timestamp}] [PairGameQueryRepository.getGameByIdForUser] Game exists but user is not participant - gameId: "${gameId}", userId: "${userId}". Returning null (will be handled as Forbidden in use case).`,
+    );
+    return null;
   }
 }

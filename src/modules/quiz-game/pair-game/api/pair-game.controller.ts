@@ -7,6 +7,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { QueryBus, CommandBus } from '@nestjs/cqrs';
 import { JwtAuthGuard } from '../../../auth-manage/guards/bearer/jwt-auth-guard';
@@ -24,6 +25,8 @@ import { SubmitAnswerCommand } from '../application/usecase/submit-answer.usecas
 @UseGuards(JwtAuthGuard)
 @Controller('pair-game-quiz/pairs')
 export class PairGameController {
+  private readonly logger = new Logger(PairGameController.name);
+
   constructor(
     private queryBus: QueryBus,
     private commandBus: CommandBus,
@@ -33,6 +36,10 @@ export class PairGameController {
   async getCurrentGame(
     @ExtractUserForJwtGuard() user: UserContextDto,
   ): Promise<PairGameViewDto> {
+    const timestamp = new Date().toISOString();
+    this.logger.log(
+      `[${timestamp}] [PairGameController.getCurrentGame] ENDPOINT CALLED - GET /pair-game-quiz/pairs/my-current - userId: "${user.id}"`,
+    );
     return this.queryBus.execute(new GetCurrentGameQuery(user.id));
   }
 
@@ -41,6 +48,10 @@ export class PairGameController {
     @Param('id', UuidValidationPipe) id: string,
     @ExtractUserForJwtGuard() user: UserContextDto,
   ): Promise<PairGameViewDto> {
+    const timestamp = new Date().toISOString();
+    this.logger.log(
+      `[${timestamp}] [PairGameController.getGameById] ENDPOINT CALLED - GET /pair-game-quiz/pairs/:id - id: "${id}", userId: "${user.id}"`,
+    );
     return this.queryBus.execute(new GetGameByIdQuery(id, user.id));
   }
 
